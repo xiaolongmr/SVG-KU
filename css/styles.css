@@ -1,0 +1,1031 @@
+/* SVG图标库 - 样式文件 */
+
+/* 基础样式重置 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background-color: #f5f7fa;
+  color: #303133;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  transition: all 0.25s ease;
+}
+
+/* Tailwind工具类 */
+.transition-basic {
+  transition: all 0.25s ease;
+}
+
+.content-auto {
+  content-visibility: auto;
+}
+
+/* 图标显示系统 - CSS版本 */
+.icon-display-container {
+  width: 160px;
+  width: 160px;
+    height: 160px;
+    padding: 10px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.icon-display-container:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.icon-display-container.icon-selected {
+  border-color: #409eff;
+  background-color: rgba(64, 158, 255, 0.05);
+}
+
+.icon-svg-wrapper {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* margin-bottom: 12px; */
+  overflow: visible;
+}
+
+.icon-svg-element {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transition: all 0.2s ease;
+}
+
+.icon-name-label {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.icon-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+/* 分组标签样式 */
+.group-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  line-height: 1;
+  z-index: 10;
+}
+
+.group-linear {
+  background-color: #409eff;
+  color: white;
+}
+
+.group-filled {
+  background-color: #67c23a;
+  color: white;
+}
+
+.group-delicate {
+  background-color: #e6a23c;
+  color: white;
+}
+
+.group-handdrawn {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.group-flat {
+  background-color: #909399;
+  color: white;
+}
+
+.group-minimal {
+  background-color: #606266;
+  color: white;
+}
+
+.group-other {
+  background-color: #909399;
+  color: white;
+}
+
+/* 选择标记样式 */
+.selection-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #409eff;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 顶部导航样式 */
+header {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 16px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon {
+  position: relative;
+  z-index: 10;
+  font-size: 24px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.logo-glow {
+  position: absolute;
+  inset: 0;
+  background: rgba(64, 158, 255, 0.2);
+  border-radius: 50%;
+  filter: blur(8px);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .header-controls {
+    width: auto;
+  }
+}
+
+/* 搜索框样式 */
+.search-container {
+  position: relative;
+  flex-grow: 1;
+  max-width: 300px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+/* 按钮样式 */
+.btn {
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: #f9fafb;
+  border-color: #409eff;
+}
+
+.btn-primary {
+  background: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+.btn-primary:hover {
+  background: #3b82f6;
+}
+
+.btn-secondary {
+  background: #67c23a;
+  color: white;
+  border-color: #67c23a;
+}
+
+.btn-secondary:hover {
+  background: #5cb85c;
+}
+
+.btn-group {
+  display: flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.btn-group .btn {
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid #e5e7eb;
+}
+
+.btn-group .btn:last-child {
+  border-right: none;
+}
+
+/* 统计和操作区样式 */
+.stats-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.stats-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.stats-number {
+  color: #409eff;
+  font-weight: 500;
+}
+
+.controls-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 筛选器样式 */
+.filter-select {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 6px 32px 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.filter-select:hover {
+  background-color: #f9fafb;
+  border-color: #409eff;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #409eff;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1);
+}
+
+/* 提示信息样式 */
+.info-tip {
+  background: #e3f2fd;
+  border-left: 4px solid #409eff;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 0 6px 6px 0;
+  font-size: 14px;
+}
+
+.info-tip.mobile-only {
+  display: block;
+}
+
+.info-tip.desktop-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .info-tip.mobile-only {
+    display: none;
+  }
+  .info-tip.desktop-only {
+    display: block;
+  }
+}
+
+.kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80px 20px;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #409eff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* 加载更多样式 */
+.load-more-container {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.load-more-spinner {
+  width: 24px;
+  height: 24px;
+  border: 4px solid #409eff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.load-more-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.load-more-end {
+  font-size: 14px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: scale(0.95);
+  transition: transform 0.2s ease;
+}
+
+.modal-overlay.active .modal-content {
+  transform: scale(1);
+}
+
+/* 提示框样式 */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(40px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: white;
+}
+
+.toast.success {
+  background: #67c23a;
+}
+
+.toast.error {
+  background: #f56c6c;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* 模态框相关样式 */
+.color-picker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.color-picker:hover {
+  border-color: #409eff;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.size-checkbox {
+  width: 16px;
+  height: 16px;
+  color: #409eff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+.size-checkbox:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1);
+}
+
+.size-option {
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  text-align: center;
+}
+
+.size-option:hover {
+  border-color: #409eff;
+  background: rgba(64, 158, 255, 0.05);
+}
+
+.size-option-selected {
+  border-color: #409eff;
+  background: rgba(64, 158, 255, 0.1);
+  color: #409eff;
+  font-weight: 500;
+}
+
+/* 详情页预览容器 */
+.detail-preview-container {
+  background: #f5f7fa;
+  padding: 16px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+  min-height: 200px;
+  overflow: hidden; /* 确保缩放内容不会超出边界 */
+  position: relative; /* 为绝对定位的子元素提供参考 */
+}
+
+.detail-icon-container {
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.svg-icon-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 路径选择高亮样式 */
+.selected-path {
+  outline: 2px solid #409eff !important;
+  outline-offset: 1px;
+  cursor: pointer;
+}
+
+.path-hover {
+  outline: 1px solid #409eff !important;
+  outline-offset: 0px;
+  cursor: pointer;
+  transition: outline 0.2s ease;
+}
+
+/* 确保详情页图标容器有足够空间显示outline */
+.detail-icon-wrapper {
+  padding: 8px !important;
+}
+
+/* 路径信息显示样式 */
+.path-info {
+  @apply p-3 bg-neutral-50 rounded-lg text-sm;
+}
+
+.path-info span {
+  @apply text-gray-600;
+}
+
+/* 批量颜色选择器样式 */
+.batch-color-container {
+  @apply transition-all duration-200;
+}
+
+.batch-color-container.disabled {
+  @apply opacity-50 pointer-events-none;
+}
+
+/* 图片复制按钮样式 */
+.copy-image-btn {
+  background: #8b5cf6;
+  color: white;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.copy-image-btn:hover {
+  background: #7c3aed;
+}
+
+/* 用于图片转换的临时容器 */
+.temp-conversion-container {
+  position: absolute;
+  top: -1000px;
+  left: -1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 隐藏滚动条但保留滚动功能 */
+#svgCode {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+#svgCode::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+/* 自定义颜色选择器样式 */
+.custom-color-picker {
+  @apply flex items-center gap-2 p-2 bg-white border border-neutral-200 rounded-lg;
+}
+
+.custom-color-picker .color-input {
+  @apply w-8 h-8 rounded border-0 cursor-pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.custom-color-picker .color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+}
+
+.custom-color-picker .color-input::-webkit-color-swatch {
+  border: 2px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.custom-color-picker .color-display {
+  @apply w-6 h-6 rounded border border-neutral-300;
+}
+
+.custom-color-picker .color-text {
+  @apply text-sm font-mono text-neutral-600;
+}
+
+/* 随机路径颜色按钮样式 */
+.random-path-color-btn {
+  @apply px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-pink-600 hover:shadow-lg;
+}
+
+.random-path-color-btn:hover {
+  transform: translateY(-1px);
+}
+
+.random-path-color-btn i {
+  @apply mr-1;
+}
+
+/* 隐藏类 */
+.hidden {
+  display: none !important;
+}
+
+/* 图标网格布局 */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.5rem;
+}
+
+/* 分组标签样式 */
+.group-badge {
+  @apply text-xs px-2 py-0.5 rounded-full absolute top-2 left-2 font-medium;
+}
+
+.group-linear {
+  @apply bg-blue-100 text-blue-600;
+}
+
+.group-filled {
+  @apply bg-green-100 text-green-600;
+}
+
+.group-other {
+  @apply bg-gray-100 text-gray-600;
+}
+
+/* 图标选中状态 */
+.icon-selected {
+  @apply border-primary bg-primary/5 relative;
+}
+
+.selection-badge {
+  @apply absolute top-2 right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center;
+}
+
+/* 颜色选择器样式 */
+.color-picker {
+  @apply w-10 h-10 rounded-full cursor-pointer overflow-hidden border-2 border-neutral-200 transition-all hover:border-primary;
+}
+
+.color-option {
+  @apply w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110;
+}
+
+/* 尺寸选择器样式 */
+.size-option {
+  @apply px-3 py-1.5 border border-neutral-200 rounded-md cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic text-sm;
+}
+
+.size-option-selected {
+  @apply border-primary bg-primary/10 text-primary font-medium;
+}
+
+/* 复选框样式 */
+.size-checkbox {
+  @apply w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded;
+}
+
+/* Logo动画效果 */
+.logo-container {
+  @apply relative inline-flex items-center justify-center;
+}
+
+.logo-icon {
+  @apply relative z-10 text-2xl;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logo-glow {
+  @apply absolute inset-0 bg-primary/20 rounded-full blur-md;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+/* 加载更多样式 */
+.loading-more {
+  @apply col-span-full flex justify-center items-center py-6;
+}
+
+.load-more-end {
+  @apply text-sm text-gray-400 italic;
+}
+
+/* 详情页预览容器 - 重新设计 */
+.detail-preview-container {
+  @apply bg-neutral-50 border border-neutral-200 rounded-xl p-6 flex flex-col gap-4;
+  min-height: 280px;
+}
+
+.detail-icon-wrapper {
+  @apply flex-1 flex items-center justify-center bg-white rounded-lg border border-neutral-100 p-4;
+  min-height: 200px;
+}
+
+.detail-icon-container {
+  @apply flex items-center justify-center;
+  width: 160px;
+  height: 160px;
+}
+
+/* 移除详情页图标容器的特殊样式覆盖，使用原始的icon-svg-wrapper样式 */
+
+.preview-controls {
+  @apply flex justify-between items-center pt-2 border-t border-neutral-200;
+}
+
+.preview-info {
+  @apply flex items-center gap-2;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .detail-preview-container {
+    @apply p-4;
+    min-height: 220px;
+  }
+  
+  .detail-icon-wrapper {
+    @apply p-3;
+    min-height: 140px;
+  }
+  
+  .detail-icon-container {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .preview-controls {
+    @apply text-xs;
+  }
+  
+  .icon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+  
+  .group-badge {
+    @apply text-xs px-1.5 py-0.5;
+    font-size: 10px;
+  }
+}
+
+/* 路径选择高亮样式 */
+.selected-path {
+  outline: 2px solid #409eff !important;
+  outline-offset: 2px;
+}
+
+.path-hover {
+  outline: 1px solid #409eff !important;
+  outline-offset: 1px;
+}
+
+/* 图片复制按钮样式 */
+.copy-image-btn {
+  @apply bg-purple-500 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1;
+}
+
+/* 用于图片转换的临时容器 */
+.temp-conversion-container {
+  position: absolute;
+  top: -1000px;
+  left: -1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .icon-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .icon-display-container {
+    width: 140px;
+    height: 140px;
+    padding: 12px;
+  }
+  
+  .icon-font-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .icon-font-element {
+    font-size: 36px;
+  }
+  
+  .header-container {
+    padding: 12px 16px;
+  }
+  
+  .stats-container {
+    padding: 0 16px;
+  }
+}
+
+/* 路径选中状态样式 */
+/* .path-selected {
+  outline: 1px dashed #f56c6c !important;
+  outline-offset: 2px !important;
+  animation: pathPulse 2s infinite;
+} */
+
+@keyframes pathPulse {
+  0%, 100% {
+    outline-color: #f56c6c;
+  }
+  50% {
+    outline-color: #ff8a8a;
+  }
+}
+
+
+/* 路径2颜色选择器样式 */
+.path2-color-option {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.path2-color-option:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.path2-color-option.selected {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px #409eff;
+}
+
+.path2-color-option.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 路径颜色选择器弹窗样式 */
+.path-color-picker-popup {
+  z-index: 1000;
+  min-width: 200px;
+  animation: fadeInScale 0.2s ease;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .header-controls,
+  .stats-container,
+  .modal-overlay,
+  .toast {
+    display: none !important;
+  }
+  
+  .icon-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+}
