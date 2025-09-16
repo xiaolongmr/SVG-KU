@@ -61,7 +61,10 @@ body {
   /* margin-bottom: 12px; */
   overflow: visible;
 }
-
+.icon-svg-wrapper svg{
+  width: 100%;
+  height: 100%;
+}
 .icon-svg-element {
   width: 100%;
   height: 100%;
