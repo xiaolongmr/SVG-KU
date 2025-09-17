@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG 图标复制工具</title>
+  <!-- 外部资源 -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 引入JSZip用于压缩文件 -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- 引入FileSaver用于保存文件 -->
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <!-- 引入html2canvas用于转换为图片 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- 图标资源 -->
+  <link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.css">
+
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#409eff',
+            secondary: '#67c23a',
+            neutral: {
+              100: '#f5f7fa',
+              200: '#e4e7ed',
+              300: '#dcdfe6',
+              800: '#303133',
+              900: '#1e1e20'
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 1.5rem;
+      }
+      .transition-basic {
+        transition: all 0.25s ease;
+      }
+      .icon-selected {
+        @apply border-primary bg-primary/5 relative;
+      }
+      .selection-badge {
+        @apply absolute top-2 right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center;
+      }
+      .color-picker {
+        @apply w-10 h-10 rounded-full cursor-pointer overflow-hidden border-2 border-neutral-200 transition-all hover:border-primary;
+      }
+      .color-option {
+        @apply w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110;
+      }
+      .group-badge {
+        @apply text-xs px-2 py-0.5 rounded-full absolute top-2 left-2;
+      }
+      .group-linear {
+        @apply bg-blue-100 text-blue-600;
+      }
+      .group-filled {
+        @apply bg-green-100 text-green-600;
+      }
+      .group-other {
+        @apply bg-gray-100 text-gray-600;
+      }
+      .size-checkbox {
+        @apply w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded;
+      }
+      .path-item {
+        @apply flex items-center gap-2 p-2 hover:bg-neutral-100 rounded mb-1 transition-basic cursor-pointer;
+      }
+      .path-item-selected {
+        @apply bg-primary/10 border-l-2 border-primary pl-3;
+      }
+    }
+  </style>
+</head>
+
+<body class="font-inter bg-neutral-100 text-neutral-800 min-h-screen transition-basic">
+  <!-- 顶部导航 -->
+  <header class="bg-white shadow-sm py-4 px-6 sticky top-0 z-30">
+    <div class="container mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-cube text-primary text-xl"></i>
+        <h1 class="text-xl font-bold">SVG 图标复制工具</h1>
+      </div>
+
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <!-- 搜索框 -->
+        <div class="relative flex-grow md:flex-grow-0 md:w-64">
+          <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="text" id="searchInput" placeholder="搜索图标..."
+            class="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-basic">
+        </div>
+
+        <!-- 随机颜色按钮 -->
+        <button id="randomColorsBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-basic" title="随机颜色">
+          <i class="fa fa-random text-neutral-600"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-6 py-8">
+    <!-- 统计和操作区 -->
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <p class="text-sm text-gray-500">
+        共 <span id="iconCount" class="text-primary font-medium">0</span> 个图标
+        <span id="selectedCount" class="ml-2 text-gray-500 hidden">
+          (已选择 <span class="text-primary font-medium">0</span> 个)
+        </span>
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <!-- 分组筛选 -->
+        <div class="relative">
+          <select id="groupFilter"
+            class="bg-white border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 rounded-lg transition-basic pr-8 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+            <option value="all">所有图标</option>
+            <option value="linear">线性图标 (-x)</option>
+            <option value="filled">面性图标 (-m)</option>
+            <option value="other">其他图标</option>
+          </select>
+          <i
+            class="fa fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none"></i>
+        </div>
+
+        <button id="deselectAllBtn"
+          class="text-sm bg-white border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1 hidden">
+          <i class="fa fa-times"></i>
+          <span>取消选择</span>
+        </button>
+        <button id="downloadSelectedBtn"
+          class="text-sm bg-secondary text-white hover:bg-secondary/90 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1 hidden">
+          <i class="fa fa-download"></i>
+          <span>下载所选</span>
+        </button>
+        <button id="downloadAllBtn"
+          class="text-sm bg-primary text-white hover:bg-primary/90 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1">
+          <i class="fa fa-download"></i>
+          <span>下载全部</span>
+        </button>
+        <button id="refreshBtn"
+          class="text-sm bg-white border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1">
+          <i class="fa fa-refresh"></i>
+          <span>刷新</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 多选提示 -->
+    <div class="bg-blue-50 border-l-4 border-primary p-4 mb-6 rounded-r text-sm hidden md:block">
+      <div class="flex items-start">
+        <i class="fa fa-info-circle text-primary mt-0.5 mr-2"></i>
+        <p>按住 <kbd class="px-2 py-0.5 bg-white border rounded text-xs">Ctrl</kbd> 或 <kbd
+            class="px-2 py-0.5 bg-white border rounded text-xs">Cmd</kbd> 键点击图标可进行多选，选好后可批量下载</p>
+      </div>
+    </div>
+
+    <!-- 图标网格 -->
+    <div id="iconGrid" class="icon-grid">
+      <!-- 加载状态 -->
+      <div class="col-span-full flex justify-center items-center py-20">
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p class="text-gray-500">加载图标中...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 图标详情模态框 -->
+  <div id="iconModal"
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
+    <div
+      class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
+      <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
+        <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
+        <button id="closeModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="p-5">
+        <div class="flex flex-col md:flex-row gap-6">
+          <!-- 图标预览 -->
+          <div class="bg-neutral-100 p-8 rounded-lg flex-shrink-0">
+            <div id="modalIconPreview" class="w-32 h-32"></div>
+          </div>
+
+          <!-- 图标信息和操作 -->
+          <div class="flex-grow w-full">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">图标名称</label>
+              <p id="modalIconName" class="font-medium"></p>
+            </div>
+
+            <!-- 图标分组 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">图标分组</label>
+              <p id="modalIconGroup" class="font-medium"></p>
+            </div>
+
+            <!-- 颜色选择器 -->
+            <div class="mb-4">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-medium text-gray-700">图标颜色</label>
+                <button id="resetColorBtn" class="text-xs text-primary hover:text-primary/80 transition-basic">
+                  <i class="fa fa-refresh mr-1"></i>重置颜色
+                </button>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="color-picker">
+                  <input type="color" id="colorPicker" value="#409eff" class="w-full h-full cursor-pointer">
+                </div>
+                <div class="flex gap-1 flex-wrap">
+                  <div class="color-option" style="background-color: #409eff;" data-color="#409eff"></div>
+                  <div class="color-option" style="background-color: #303133;" data-color="#303133"></div>
+                  <div class="color-option" style="background-color: #ffffff; border: 1px solid #e4e7ed;"
+                    data-color="#ffffff"></div>
+                  <div class="color-option" style="background-color: #f56c6c;" data-color="#f56c6c"></div>
+                  <div class="color-option" style="background-color: #67c23a;" data-color="#67c23a"></div>
+                  <div class="color-option" style="background-color: #e6a23c;" data-color="#e6a23c"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 路径选择器 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">路径颜色 (单独设置)</label>
+              <div id="pathList" class="max-h-32 overflow-y-auto border border-neutral-200 rounded p-1 text-sm">
+                <p class="text-gray-500 text-center py-2">加载路径信息中...</p>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <label class="block text-sm font-medium text-gray-700 mb-1">SVG 代码</label>
+              <div class="relative">
+                <pre id="svgCode"
+                  class="bg-neutral-900 text-white p-3 rounded-lg text-sm overflow-x-auto max-h-40 text-xs whitespace-pre-wrap break-all"></pre>
+                <button id="copySvgBtn"
+                  class="absolute top-2 right-2 bg-primary/90 hover:bg-primary text-white px-2 py-1 rounded text-xs transition-basic">
+                  复制
+                </button>
+              </div>
+            </div>
+
+            <div class="flex gap-3 flex-wrap">
+              <button id="downloadSvgBtn"
+                class="bg-primary hover:bg-primary/90 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                <i class="fa fa-download"></i>
+                <span>下载 SVG</span>
+              </button>
+              <button id="downloadPngBtn"
+                class="bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                <i class="fa fa-download"></i>
+                <span>下载 PNG</span>
+              </button>
+              <button id="copyDirectBtn"
+                class="bg-white border border-neutral-200 hover:bg-neutral-100 text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                <i class="fa fa-copy"></i>
+                <span>快速复制</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下载设置模态框 -->
+  <div id="downloadSettingsModal"
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
+    <div
+      class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
+      <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
+        <h3 class="text-lg font-semibold">下载设置</h3>
+        <button id="closeDownloadModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="p-5">
+        <!-- 导出格式选择 -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-700 mb-2">导出格式</label>
+          <div class="space-y-2">
+            <label class="flex items-center">
+              <input type="checkbox" id="exportSvg" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">SVG 格式</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" id="exportPng" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">PNG 格式</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 导出尺寸选择 -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-700 mb-2">导出尺寸 (适用于 PNG)</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <label class="flex items-center">
+              <input type="checkbox" name="exportSizes" value="64" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">64x64</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" name="exportSizes" value="128" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">128x128</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" name="exportSizes" value="256" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">256x256</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" name="exportSizes" value="512" class="size-checkbox">
+              <span class="ml-2 text-sm text-gray-700">512x512</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 打包选项 -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-700 mb-2">打包选项</label>
+          <div class="space-y-2">
+            <label class="flex items-center">
+              <input type="radio" name="packagingOption" value="by-icon" class="size-checkbox" checked>
+              <span class="ml-2 text-sm text-gray-700">按图标分组（每个图标一个文件夹）</span>
+            </label>
+            <label class="flex items-center">
+              <input type="radio" name="packagingOption" value="by-format-size" class="size-checkbox">
+              <span class="ml-2 text-sm text-gray-700">按格式和尺寸分组（相同格式和尺寸打包在一起）</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 颜色设置 -->
+        <div class="mb-4">
+          <label class="flex items-center">
+            <input type="checkbox" id="useIndividualColors" class="size-checkbox" checked>
+            <span class="ml-2 text-sm text-gray-700">使用单独设置的图标颜色</span>
+          </label>
+        </div>
+
+        <div id="batchColorContainer" class="mb-5">
+          <label class="block text-sm font-medium text-gray-700 mb-2">统一图标颜色 (如不使用单独颜色)</label>
+          <div class="flex items-center gap-3">
+            <div class="color-picker">
+              <input type="color" id="batchColorPicker" value="#409eff" class="w-full h-full cursor-pointer">
+            </div>
+            <div class="flex gap-1 flex-wrap">
+              <div class="color-option" style="background-color: #409eff;" data-color="#409eff"></div>
+              <div class="color-option" style="background-color: #303133;" data-color="#303133"></div>
+              <div class="color-option" style="background-color: #ffffff; border: 1px solid #e4e7ed;"
+                data-color="#ffffff"></div>
+              <div class="color-option" style="background-color: #f56c6c;" data-color="#f56c6c"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-neutral-200">
+          <button id="cancelDownloadBtn"
+            class="bg-white border border-neutral-200 hover:bg-neutral-100 text-sm px-4 py-2 rounded-lg transition-basic">
+            取消
+          </button>
+          <button id="confirmDownloadBtn"
+            class="bg-secondary hover:bg-secondary/90 text-white text-sm px-4 py-2 rounded-lg transition-basic">
+            确认下载
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示框 -->
+  <div id="toast"
+    class="fixed bottom-6 right-6 px-4 py-2 rounded-lg shadow-lg transform translate-y-10 opacity-0 transition-basic flex items-center gap-2 z-50">
+  </div>
+
+  <!-- 隐藏的PNG转换容器 -->
+  <div id="pngConversionContainer" class="hidden absolute top-0 left-0 z-0"></div>
+
+  <!-- 引入图标脚本 -->
+  <script src="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.js"></script>
+
+  <script>
+    // DOM 元素
+    const iconGrid = document.getElementById('iconGrid');
+    const iconCount = document.getElementById('iconCount');
+    const selectedCount = document.querySelector('#selectedCount .font-medium');
+    const selectedCountContainer = document.getElementById('selectedCount');
+    const searchInput = document.getElementById('searchInput');
+    const groupFilter = document.getElementById('groupFilter');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const iconModal = document.getElementById('iconModal');
+    const modalContent = iconModal.querySelector('div');
+    const closeModal = document.getElementById('closeModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalIconPreview = document.getElementById('modalIconPreview');
+    const modalIconName = document.getElementById('modalIconName');
+    const modalIconGroup = document.getElementById('modalIconGroup');
+    const svgCode = document.getElementById('svgCode');
+    const copySvgBtn = document.getElementById('copySvgBtn');
+    const downloadSvgBtn = document.getElementById('downloadSvgBtn');
+    const downloadPngBtn = document.getElementById('downloadPngBtn');
+    const copyDirectBtn = document.getElementById('copyDirectBtn');
+    const toast = document.getElementById('toast');
+    const colorPicker = document.getElementById('colorPicker');
+    const colorOptions = document.querySelectorAll('.color-option');
+    const downloadSettingsModal = document.getElementById('downloadSettingsModal');
+    const closeDownloadModal = document.getElementById('closeDownloadModal');
+    const cancelDownloadBtn = document.getElementById('cancelDownloadBtn');
+    const confirmDownloadBtn = document.getElementById('confirmDownloadBtn');
+    const exportSvg = document.getElementById('exportSvg');
+    const exportPng = document.getElementById('exportPng');
+    const exportSizes = document.querySelectorAll('input[name="exportSizes"]');
+    const batchColorPicker = document.getElementById('batchColorPicker');
+    const batchColorOptions = document.querySelectorAll('#downloadSettingsModal .color-option');
+    const useIndividualColors = document.getElementById('useIndividualColors');
+    const batchColorContainer = document.getElementById('batchColorContainer');
+    const pngConversionContainer = document.getElementById('pngConversionContainer');
+    const resetColorBtn = document.getElementById('resetColorBtn');
+    const randomColorsBtn = document.getElementById('randomColorsBtn');
+    const pathList = document.getElementById('pathList');
+    const packagingOptions = document.querySelectorAll('input[name="packagingOption"]');
+
+    // 存储所有图标和选中状态
+    let allIcons = [];
+    let currentIcon = null;
+    let currentIconColor = '#409eff';
+    let originalIconColors = new Map(); // 存储每个图标的原始颜色
+    let iconColors = new Map(); // 存储每个图标的颜色设置
+    let pathColors = new Map(); // 存储每个路径的颜色设置，结构: iconId -> Map(pathIndex -> color)
+    let selectedPathIndex = -1; // 当前选中的路径索引
+    let selectedIcons = new Set(); // 使用Set存储选中的图标ID
+    let downloadType = 'selected'; // 'selected' 或 'all'
+
+    // 生成随机颜色
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // 显示提示框
+    function showToast(message, isSuccess = true) {
+      toast.textContent = '';
+      toast.classList.remove('bg-secondary', 'bg-red-500', 'bg-primary');
+      toast.classList.add(isSuccess ? 'bg-secondary' : 'bg-red-500');
+
+      toast.innerHTML = `
+        <i class="fa ${isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+        <span>${message}</span>
+      `;
+
+      toast.classList.remove('translate-y-10', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+      }, 2000);
+    }
+
+    // 复制文本到剪贴板
+    function copyToClipboard(text) {
+      return navigator.clipboard.writeText(text)
+        .then(() => true)
+        .catch(err => {
+          console.error('复制失败:', err);
+          return false;
+        });
+    }
+
+    // 更新选中状态UI
+    function updateSelectionUI() {
+      const count = selectedIcons.size;
+
+      // 更新计数显示
+      selectedCount.textContent = count;
+
+      // 显示/隐藏选中相关元素
+      if (count > 0) {
+        selectedCountContainer.classList.remove('hidden');
+        downloadSelectedBtn.classList.remove('hidden');
+        deselectAllBtn.classList.remove('hidden');
+      } else {
+        selectedCountContainer.classList.add('hidden');
+        downloadSelectedBtn.classList.add('hidden');
+        deselectAllBtn.classList.add('hidden');
+      }
+
+      // 更新所有图标项的选中状态
+      document.querySelectorAll('.icon-item').forEach(item => {
+        const iconId = item.dataset.iconId;
+        if (selectedIcons.has(iconId)) {
+          item.classList.add('icon-selected');
+          // 添加选中标记
+          if (!item.querySelector('.selection-badge')) {
+            item.insertAdjacentHTML('afterbegin', '<span class="selection-badge">✓</span>');
+          }
+        } else {
+          item.classList.remove('icon-selected');
+          // 移除选中标记
+          const badge = item.querySelector('.selection-badge');
+          if (badge) {
+            badge.remove();
+          }
+        }
+      });
+    }
+
+    // 切换图标选中状态
+    function toggleIconSelection(iconId, forceState = null) {
+      if (forceState === true) {
+        selectedIcons.add(iconId);
+      } else if (forceState === false) {
+        selectedIcons.delete(iconId);
+      } else {
+        if (selectedIcons.has(iconId)) {
+          selectedIcons.delete(iconId);
+        } else {
+          selectedIcons.add(iconId);
+        }
+      }
+
+      updateSelectionUI();
+    }
+
+    // 取消所有选中
+    function deselectAll() {
+      selectedIcons.clear();
+      updateSelectionUI();
+      showToast('已取消所有选择');
+    }
+
+    // 为所有图标应用随机颜色
+    function applyRandomColors() {
+      document.querySelectorAll('.icon-item').forEach(item => {
+        const iconId = item.dataset.iconId;
+        const randomColor = getRandomColor();
+        iconColors.set(iconId, randomColor);
+
+        // 更新图标颜色
+        const svgElement = item.querySelector('svg');
+        if (svgElement) {
+          svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse').forEach(el => {
+            el.setAttribute('fill', randomColor === '#ffffff' ? '#000000' : randomColor);
+            el.setAttribute('stroke', randomColor === '#ffffff' ? '#000000' : randomColor);
+          });
+        }
+      });
+      showToast('已为所有图标应用随机颜色');
+    }
+
+    // 获取图标分组信息
+    function getIconGroup(iconId) {
+      if (iconId.endsWith('-x')) {
+        return { type: 'linear', name: '线性图标' };
+      } else if (iconId.endsWith('-m')) {
+        return { type: 'filled', name: '面性图标' };
+      } else {
+        return { type: 'other', name: '其他图标' };
+      }
+    }
+
+    // 处理图标名称（去除前缀icon-和后缀-x/-m）
+    function processIconName(iconId) {
+      // 先去除前缀
+      let processed = iconId.replace(/^icon-/, '');
+      // 再去除后缀
+      processed = processed.replace(/-x$/, '').replace(/-m$/, '');
+      return processed;
+    }
+
+    // 获取原始图标名称（仅去除前缀icon-，保留后缀用于分组）
+    function getOriginalNameWithoutPrefix(iconId) {
+      return iconId.replace(/^icon-/, '');
+    }
+
+    // 创建单个图标元素
+    function createIconItem(icon) {
+      const item = document.createElement('div');
+      item.className = 'bg-white rounded-lg border border-neutral-200 p-4 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic flex flex-col items-center icon-item relative';
+      item.dataset.iconId = icon.id;
+
+      // 获取分组信息（基于原始名称，包含后缀）
+      const group = getIconGroup(icon.originalNameWithoutPrefix);
+
+      // 初始选中状态
+      if (selectedIcons.has(icon.id)) {
+        item.classList.add('icon-selected');
+      }
+
+      // 获取图标颜色（使用已保存的颜色或默认值）
+      const iconColor = iconColors.get(icon.id) || '#409eff';
+      originalIconColors.set(icon.id, iconColor); // 保存原始颜色用于重置
+
+      let innerHTML = `
+        <span class="group-badge group-${group.type}">${group.type === 'linear' ? '线性' : group.type === 'filled' ? '面性' : '其他'}</span>
+        <svg viewBox="${icon.viewBox}" class="w-10 h-10 mb-2" xmlns="http://www.w3.org/2000/svg">
+          ${icon.content}
+        </svg>
+        <div class="text-xs font-medium truncate w-full" title="${icon.processedId}">${icon.processedId}</div>
+      `;
+
+      // 如果已选中，添加标记
+      if (selectedIcons.has(icon.id)) {
+        innerHTML = '<span class="selection-badge">✓</span>' + innerHTML;
+      }
+
+      item.innerHTML = innerHTML;
+
+      // 设置图标颜色
+      const svgElement = item.querySelector('svg');
+      if (svgElement) {
+        svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse').forEach(el => {
+          el.setAttribute('fill', iconColor === '#ffffff' ? '#000000' : iconColor);
+          el.setAttribute('stroke', iconColor === '#ffffff' ? '#000000' : iconColor);
+        });
+      }
+
+      // 点击事件处理
+      item.addEventListener('click', (e) => {
+        // 按住Ctrl或Cmd键点击进行选择/取消选择
+        if (e.ctrlKey || e.metaKey) {
+          toggleIconSelection(icon.id);
+          e.stopPropagation();
+        } else {
+          // 否则打开详情
+          openIconDetail(icon);
+        }
+      });
+
+      return item;
+    }
+
+    // 重置图标颜色
+    function resetIconColor() {
+      if (!currentIcon) return;
+
+      const originalColor = originalIconColors.get(currentIcon.id) || '#409eff';
+      updateIconColor(originalColor, true);
+
+      // 重置路径颜色
+      pathColors.delete(currentIcon.id);
+      selectedPathIndex = -1;
+      renderPathList();
+
+      showToast('颜色已重置为默认值');
+    }
+
+    // 更新图标颜色
+    function updateIconColor(color, isReset = false) {
+      if (!currentIcon) return;
+
+      // 保存颜色设置
+      currentIconColor = color;
+      iconColors.set(currentIcon.id, color);
+      colorPicker.value = color;
+
+      // 更新预览图标颜色
+      const svgElement = modalIconPreview.querySelector('svg');
+      if (svgElement) {
+        // 获取所有路径和形状
+        const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+        // 如果没有选中特定路径，更新所有元素
+        if (selectedPathIndex === -1 || isReset) {
+          elements.forEach(el => {
+            el.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+            el.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+          });
+        } else {
+          // 只更新选中的路径
+          const selectedElement = elements[selectedPathIndex];
+          if (selectedElement) {
+            selectedElement.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+            selectedElement.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+
+            // 保存路径颜色
+            let pathMap = pathColors.get(currentIcon.id) || new Map();
+            pathMap.set(selectedPathIndex, color);
+            pathColors.set(currentIcon.id, pathMap);
+          }
+        }
+      }
+
+      // 更新SVG代码
+      let modifiedSvgCode = currentIcon.svgCode;
+
+      // 获取所有路径和形状
+      const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      tempSvg.innerHTML = modifiedSvgCode;
+      const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+      // 应用颜色修改
+      if (selectedPathIndex === -1 || isReset) {
+        // 替换所有元素的颜色
+        modifiedSvgCode = modifiedSvgCode.replace(/fill="[^"]*"/g, `fill="${color}"`);
+        modifiedSvgCode = modifiedSvgCode.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+        if (!modifiedSvgCode.includes(`fill="${color}"`)) {
+          modifiedSvgCode = modifiedSvgCode.replace('<svg', `<svg fill="${color}"`);
+        }
+      } else {
+        // 只替换选中路径的颜色
+        const selectedElement = elements[selectedPathIndex];
+        if (selectedElement) {
+          // 这部分逻辑更复杂，需要解析和修改特定路径
+          let elementHtml = new XMLSerializer().serializeToString(selectedElement);
+          elementHtml = elementHtml.replace(/fill="[^"]*"/g, `fill="${color}"`);
+          elementHtml = elementHtml.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+          // 替换原SVG中的对应元素
+          const elementTag = selectedElement.tagName;
+          const elementId = selectedElement.id ? `id="${selectedElement.id}"` : '';
+          const regex = new RegExp(`<${elementTag}[^>]*${elementId}[^>]*>.*?<\/${elementTag}>`, 'gi');
+          modifiedSvgCode = modifiedSvgCode.replace(regex, elementHtml);
+        }
+      }
+
+      // 格式化代码，使其更好地换行
+      const formattedCode = modifiedSvgCode
+        .replace(/></g, '>\n<')
+        .replace(/([{}])/g, '\n$1\n')
+        .replace(/\n+/g, '\n')
+        .trim();
+
+      svgCode.textContent = formattedCode;
+
+      // 更新网格中对应图标的颜色
+      const iconItem = document.querySelector(`.icon-item[data-icon-id="${currentIcon.id}"]`);
+      if (iconItem) {
+        const svgElement = iconItem.querySelector('svg');
+        if (svgElement) {
+          svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse').forEach(el => {
+            el.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+            el.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+          });
+        }
+      }
+    }
+
+    // 渲染路径列表
+    function renderPathList() {
+      if (!currentIcon) return;
+
+      // 创建临时SVG来解析路径
+      const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      tempSvg.innerHTML = currentIcon.svgCode;
+      const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+      if (elements.length === 0) {
+        pathList.innerHTML = '<p class="text-gray-500 text-center py-2">此图标没有可编辑的路径</p>';
+        return;
+      }
+
+      // 清空路径列表
+      pathList.innerHTML = '';
+
+      // 添加"所有路径"选项
+      const allPathsItem = document.createElement('div');
+      allPathsItem.className = `path-item ${selectedPathIndex === -1 ? 'path-item-selected' : ''}`;
+      allPathsItem.innerHTML = `
+        <div class="w-4 h-4 rounded-full" style="background-color: ${currentIconColor};"></div>
+        <span>所有路径</span>
+      `;
+      allPathsItem.addEventListener('click', () => {
+        selectedPathIndex = -1;
+        renderPathList();
+        updateIconColor(currentIconColor);
+      });
+      pathList.appendChild(allPathsItem);
+
+      // 获取此图标的路径颜色设置
+      const pathMap = pathColors.get(currentIcon.id) || new Map();
+
+      // 添加每个路径
+      elements.forEach((element, index) => {
+        const pathItem = document.createElement('div');
+        const pathColor = pathMap.get(index) || currentIconColor;
+        pathItem.className = `path-item ${selectedPathIndex === index ? 'path-item-selected' : ''}`;
+        pathItem.innerHTML = `
+          <div class="w-4 h-4 rounded-full" style="background-color: ${pathColor};"></div>
+          <span>${element.tagName} #${index + 1}</span>
+        `;
+        pathItem.addEventListener('click', () => {
+          selectedPathIndex = index;
+          renderPathList();
+          // 更新颜色选择器以匹配当前路径颜色
+          colorPicker.value = pathColor;
+        });
+        pathList.appendChild(pathItem);
+      });
+    }
+
+    // 打开图标详情
+    function openIconDetail(icon) {
+      currentIcon = icon;
+      // 获取保存的颜色或使用默认值
+      currentIconColor = iconColors.get(icon.id) || '#409eff';
+      colorPicker.value = currentIconColor;
+
+      // 重置路径选择
+      selectedPathIndex = -1;
+
+      // 获取分组信息（基于原始名称，包含后缀）
+      const group = getIconGroup(icon.originalNameWithoutPrefix);
+
+      // 更新模态框内容
+      modalTitle.textContent = `图标详情: ${icon.processedId}`;
+      modalIconName.textContent = icon.processedId;
+      modalIconGroup.textContent = group.name;
+
+      // 图标预览（增加内边距避免裁剪）
+      modalIconPreview.innerHTML = `
+        <svg viewBox="${icon.viewBox}" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          ${icon.content}
+        </svg>
+      `;
+
+      // 设置预览图颜色
+      const svgElement = modalIconPreview.querySelector('svg');
+      if (svgElement) {
+        svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse').forEach(el => {
+          el.setAttribute('fill', currentIconColor === '#ffffff' ? '#000000' : currentIconColor);
+          el.setAttribute('stroke', currentIconColor === '#ffffff' ? '#000000' : currentIconColor);
+        });
+      }
+
+      // 渲染路径列表
+      renderPathList();
+
+      // SVG 代码
+      let svgCodeWithColor = icon.svgCode;
+      svgCodeWithColor = svgCodeWithColor.replace(/fill="[^"]*"/g, `fill="${currentIconColor}"`);
+      svgCodeWithColor = svgCodeWithColor.replace(/stroke="[^"]*"/g, `stroke="${currentIconColor}"`);
+
+      if (!svgCodeWithColor.includes(`fill="${currentIconColor}"`)) {
+        svgCodeWithColor = svgCodeWithColor.replace('<svg', `<svg fill="${currentIconColor}"`);
+      }
+
+      // 格式化代码，使其更好地换行
+      const formattedCode = svgCodeWithColor
+        .replace(/></g, '>\n<')
+        .replace(/([{}])/g, '\n$1\n')
+        .replace(/\n+/g, '\n')
+        .trim();
+
+      svgCode.textContent = formattedCode;
+
+      // 显示模态框
+      iconModal.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        modalContent.classList.remove('scale-95');
+        modalContent.classList.add('scale-100');
+      }, 10);
+    }
+
+    // 关闭图标详情模态框
+    function closeIconModal() {
+      modalContent.classList.remove('scale-100');
+      modalContent.classList.add('scale-95');
+      setTimeout(() => {
+        iconModal.classList.add('opacity-0', 'pointer-events-none');
+        currentIcon = null;
+        selectedPathIndex = -1;
+      }, 200);
+    }
+
+    // 关闭下载设置模态框
+    function closeDownloadModalFunc() {
+      downloadSettingsModal.querySelector('div').classList.remove('scale-100');
+      downloadSettingsModal.querySelector('div').classList.add('scale-95');
+      setTimeout(() => {
+        downloadSettingsModal.classList.add('opacity-0', 'pointer-events-none');
+      }, 200);
+    }
+
+    // 打开下载设置模态框
+    function openDownloadSettingsModal(type) {
+      downloadType = type;
+      exportSvg.checked = true;
+      exportPng.checked = true;
+
+      // 选中默认尺寸
+      exportSizes.forEach(checkbox => {
+        checkbox.checked = ['64', '128', '256'].includes(checkbox.value);
+      });
+
+      // 默认按图标分组
+      packagingOptions[0].checked = true;
+
+      batchColorPicker.value = '#409eff';
+      useIndividualColors.checked = true;
+      batchColorContainer.classList.remove('opacity-50', 'pointer-events-none');
+
+      downloadSettingsModal.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        downloadSettingsModal.querySelector('div').classList.remove('scale-95');
+        downloadSettingsModal.querySelector('div').classList.add('scale-100');
+      }, 10);
+    }
+
+    // 下载单个SVG
+    function downloadSvg(icon, color = '#409eff') {
+      // 应用颜色修改
+      let svgCode = icon.svgCode;
+
+      // 检查是否有路径颜色设置
+      const pathMap = pathColors.get(icon.id);
+      if (pathMap && pathMap.size > 0) {
+        // 创建临时SVG来解析路径
+        const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        tempSvg.innerHTML = svgCode;
+        const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+        // 应用每个路径的颜色
+        elements.forEach((element, index) => {
+          const pathColor = pathMap.get(index);
+          if (pathColor) {
+            element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+            element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+          }
+        });
+
+        svgCode = new XMLSerializer().serializeToString(tempSvg);
+      } else {
+        // 应用整体颜色
+        svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${color}"`);
+        svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+        if (!svgCode.includes(`fill="${color}"`)) {
+          svgCode = svgCode.replace('<svg', `<svg fill="${color}"`);
+        }
+      }
+
+      const blob = new Blob([svgCode], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${icon.processedId}.svg`;
+      document.body.appendChild(a);
+      a.click();
+
+      // 清理
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+
+      return true;
+    }
+
+    // 将SVG转换为PNG并下载
+    function downloadPng(icon, color = '#409eff', size = 256) {
+      return new Promise((resolve, reject) => {
+        // 创建临时SVG元素
+        let svgCode = icon.svgCode;
+
+        // 检查是否有路径颜色设置
+        const pathMap = pathColors.get(icon.id);
+        if (pathMap && pathMap.size > 0) {
+          // 创建临时SVG来解析路径
+          const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          tempSvg.innerHTML = svgCode;
+          const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+          // 应用每个路径的颜色
+          elements.forEach((element, index) => {
+            const pathColor = pathMap.get(index);
+            if (pathColor) {
+              element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+              element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+            }
+          });
+
+          svgCode = new XMLSerializer().serializeToString(tempSvg);
+        } else {
+          // 应用整体颜色
+          svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${color}"`);
+          svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+          if (!svgCode.includes(`fill="${color}"`)) {
+            svgCode = svgCode.replace('<svg', `<svg fill="${color}"`);
+          }
+        }
+
+        // 创建临时容器
+        const tempContainer = document.createElement('div');
+        tempContainer.style.width = `${size}px`;
+        tempContainer.style.height = `${size}px`;
+        tempContainer.style.padding = '8px'; // 增加内边距避免裁剪
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.top = '-1000px';
+        tempContainer.style.left = '-1000px';
+        tempContainer.innerHTML = svgCode;
+        document.body.appendChild(tempContainer);
+
+        // 使用html2canvas转换为图片
+        html2canvas(tempContainer, {
+          backgroundColor: null,
+          scale: 2
+        }).then(canvas => {
+          // 下载图片
+          canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${icon.processedId}.png`;
+            document.body.appendChild(a);
+            a.click();
+
+            // 清理
+            setTimeout(() => {
+              document.body.removeChild(a);
+              document.body.removeChild(tempContainer);
+              URL.revokeObjectURL(url);
+              resolve();
+            }, 0);
+          });
+        }).catch(err => {
+          console.error('PNG转换失败:', err);
+          document.body.removeChild(tempContainer);
+          reject(err);
+        });
+      });
+    }
+
+    // 批量处理并下载图标
+    function batchDownloadIcons() {
+      // 获取下载设置
+      const exportSvgFormat = exportSvg.checked;
+      const exportPngFormat = exportPng.checked;
+
+      // 获取选中的尺寸
+      const sizes = Array.from(exportSizes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => parseInt(checkbox.value));
+
+      // 获取打包选项
+      const packagingOption = document.querySelector('input[name="packagingOption"]:checked').value;
+
+      // 验证至少选择了一种格式和尺寸
+      if (!exportSvgFormat && !exportPngFormat) {
+        showToast('请至少选择一种导出格式', false);
+        return;
+      }
+
+      if (exportPngFormat && sizes.length === 0) {
+        showToast('导出PNG格式时请至少选择一种尺寸', false);
+        return;
+      }
+
+      const useIndividual = useIndividualColors.checked;
+      const batchColor = batchColorPicker.value;
+
+      // 关闭设置模态框
+      closeDownloadModalFunc();
+
+      // 确定要下载的图标
+      let iconsToDownload;
+      if (downloadType === 'selected') {
+        iconsToDownload = allIcons.filter(icon => selectedIcons.has(icon.id));
+        if (iconsToDownload.length === 0) {
+          showToast('请先选择要下载的图标', false);
+          return;
+        }
+      } else {
+        // 应用当前筛选条件
+        iconsToDownload = filterIcons(allIcons);
+        // 限制数量
+        const maxIcons = 50;
+        if (iconsToDownload.length > maxIcons) {
+          iconsToDownload = iconsToDownload.slice(0, maxIcons);
+          showToast(`一次最多下载 ${maxIcons} 个图标，已自动截断`, false);
+        }
+      }
+
+      // 计算总文件数
+      const totalFiles = iconsToDownload.length * (
+        (exportSvgFormat ? 1 : 0) +
+        (exportPngFormat ? sizes.length : 0)
+      );
+
+      if (totalFiles === 0) {
+        showToast('没有文件需要下载', false);
+        return;
+      }
+
+      // 显示处理中提示
+      showToast(`正在处理 ${totalFiles} 个文件...`, true);
+
+      // 创建ZIP实例
+      const zip = new JSZip();
+
+      // 处理每个图标
+      const promises = iconsToDownload.flatMap((icon, iconIndex) => {
+        const color = useIndividual ? (iconColors.get(icon.id) || '#409eff') : batchColor;
+        const iconPromises = [];
+
+        // 处理SVG格式
+        if (exportSvgFormat) {
+          iconPromises.push(new Promise(resolve => {
+            setTimeout(() => {
+              try {
+                let svgCode = icon.svgCode;
+
+                // 检查是否有路径颜色设置
+                const pathMap = pathColors.get(icon.id);
+                if (pathMap && pathMap.size > 0) {
+                  // 创建临时SVG来解析路径
+                  const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                  tempSvg.innerHTML = svgCode;
+                  const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+                  // 应用每个路径的颜色
+                  elements.forEach((element, index) => {
+                    const pathColor = pathMap.get(index);
+                    if (pathColor) {
+                      element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+                      element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+                    }
+                  });
+
+                  svgCode = new XMLSerializer().serializeToString(tempSvg);
+                } else {
+                  // 应用整体颜色
+                  svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${color}"`);
+                  svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+                  if (!svgCode.includes(`fill="${color}"`)) {
+                    svgCode = svgCode.replace('<svg', `<svg fill="${color}"`);
+                  }
+                }
+
+                // 根据打包选项确定文件路径
+                let filePath;
+                if (packagingOption === 'by-icon') {
+                  filePath = `${icon.processedId}/${icon.processedId}.svg`;
+                } else {
+                  filePath = `svg/${icon.processedId}.svg`;
+                }
+
+                zip.file(filePath, svgCode);
+                resolve();
+              } catch (err) {
+                console.error(`处理SVG图标 ${icon.processedId} 失败:`, err);
+                resolve();
+              }
+            }, iconIndex * 100);
+          }));
+        }
+
+        // 处理PNG格式（多种尺寸）
+        if (exportPngFormat) {
+          sizes.forEach((size, sizeIndex) => {
+            iconPromises.push(new Promise(resolve => {
+              setTimeout(() => {
+                try {
+                  // 创建临时SVG
+                  let svgCode = icon.svgCode;
+
+                  // 检查是否有路径颜色设置
+                  const pathMap = pathColors.get(icon.id);
+                  if (pathMap && pathMap.size > 0) {
+                    // 创建临时SVG来解析路径
+                    const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    tempSvg.innerHTML = svgCode;
+                    const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+                    // 应用每个路径的颜色
+                    elements.forEach((element, index) => {
+                      const pathColor = pathMap.get(index);
+                      if (pathColor) {
+                        element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+                        element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+                      }
+                    });
+
+                    svgCode = new XMLSerializer().serializeToString(tempSvg);
+                  } else {
+                    // 应用整体颜色
+                    svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${color}"`);
+                    svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
+
+                    if (!svgCode.includes(`fill="${color}"`)) {
+                      svgCode = svgCode.replace('<svg', `<svg fill="${color}"`);
+                    }
+                  }
+
+                  const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgCode)));
+
+                  const img = new Image();
+                  img.onload = function () {
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = size;
+                    tempCanvas.height = size;
+                    // 增加内边距避免裁剪
+                    const padding = 4;
+                    const drawSize = size - padding * 2;
+                    tempCtx.drawImage(img, padding, padding, drawSize, drawSize);
+
+                    tempCanvas.toBlob(blob => {
+                      // 根据打包选项确定文件路径
+                      let filePath;
+                      if (packagingOption === 'by-icon') {
+                        filePath = `${icon.processedId}/${icon.processedId}_${size}x${size}.png`;
+                      } else {
+                        filePath = `png-${size}x${size}/${icon.processedId}.png`;
+                      }
+
+                      zip.file(filePath, blob);
+                      resolve();
+                    });
+                  };
+                  img.src = svgDataUrl;
+                } catch (err) {
+                  console.error(`处理PNG图标 ${icon.processedId} (${size}x${size}) 失败:`, err);
+                  resolve();
+                }
+              }, iconIndex * 100 + sizeIndex * 50);
+            }));
+          });
+        }
+
+        return iconPromises;
+      });
+
+      // 所有图标处理完成后生成ZIP
+      Promise.all(promises).then(() => {
+        // 生成ZIP文件并下载
+        zip.generateAsync({ type: 'blob' }, (metadata) => {
+          console.log(`打包进度: ${metadata.percent.toFixed(2)}%`);
+        }).then((content) => {
+          // 保存文件
+          const fileName = `${downloadType === 'selected' ? 'selected' : 'filtered'}-icons-${new Date().getTime()}.zip`;
+          saveAs(content, fileName);
+          showToast(`已成功打包并下载 ${totalFiles} 个文件`);
+        }).catch(err => {
+          console.error('打包失败:', err);
+          showToast('打包下载失败，请重试', false);
+        });
+      });
+    }
+
+    // 筛选图标（根据搜索和分组）
+    function filterIcons(icons) {
+      const keyword = searchInput.value.trim().toLowerCase();
+      const group = groupFilter.value;
+
+      return icons.filter(icon => {
+        // 应用搜索筛选（搜索处理后的名称，不包含后缀）
+        const matchesSearch = !keyword || icon.processedId.toLowerCase().includes(keyword);
+
+        // 应用分组筛选（基于原始名称，包含后缀）
+        let matchesGroup = true;
+        if (group !== 'all') {
+          const iconGroup = getIconGroup(icon.originalNameWithoutPrefix);
+          matchesGroup = iconGroup.type === group;
+        }
+
+        return matchesSearch && matchesGroup;
+      });
+    }
+
+    // 加载并显示图标
+    function loadIcons() {
+      // 清空选择
+      selectedIcons.clear();
+      updateSelectionUI();
+
+      // 显示加载状态
+      iconGrid.innerHTML = `
+        <div class="col-span-full flex justify-center items-center py-20">
+          <div class="flex flex-col items-center">
+            <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-gray-500">加载图标中...</p>
+          </div>
+        </div>
+      `;
+
+      // 查找包含所有图标的SVG元素
+      const svgContainer = document.querySelector('svg');
+      if (!svgContainer) {
+        iconGrid.innerHTML = `
+          <div class="col-span-full flex justify-center items-center py-20">
+            <div class="text-center">
+              <i class="fa fa-exclamation-triangle text-orange-500 text-2xl mb-3"></i>
+              <p class="text-gray-500">无法加载图标资源</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // 提取所有图标symbol
+      const symbols = svgContainer.querySelectorAll('symbol');
+      allIcons = Array.from(symbols).map(symbol => {
+        const id = symbol.id;
+        const originalNameWithoutPrefix = getOriginalNameWithoutPrefix(id); // 仅去除前缀，保留后缀用于分组
+        const processedId = processIconName(id); // 处理图标名称，去除前缀和后缀
+        const viewBox = symbol.getAttribute('viewBox') || '0 0 1024 1024';
+        const content = symbol.innerHTML;
+        const svgCode = `<svg viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+
+        return { id, originalNameWithoutPrefix, processedId, viewBox, content, svgCode };
+      });
+
+      // 更新计数
+      iconCount.textContent = allIcons.length;
+
+      // 渲染图标
+      renderIcons(allIcons);
+    }
+
+    // 渲染图标列表
+    function renderIcons(icons) {
+      // 应用筛选
+      const filteredIcons = filterIcons(icons);
+
+      if (filteredIcons.length === 0) {
+        iconGrid.innerHTML = `
+          <div class="col-span-full flex justify-center items-center py-20">
+            <div class="text-center">
+              <i class="fa fa-search text-2xl text-gray-300 mb-3"></i>
+              <p class="text-gray-500">未找到匹配的图标</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // 清空并渲染
+      iconGrid.innerHTML = '';
+      filteredIcons.forEach(icon => {
+        iconGrid.appendChild(createIconItem(icon));
+      });
+    }
+
+    // 搜索图标
+    function searchIcons() {
+      renderIcons(allIcons);
+    }
+
+    // 事件监听
+    document.addEventListener('DOMContentLoaded', loadIcons);
+
+    // 搜索防抖
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(searchIcons, 300);
+    });
+
+    // 分组筛选变化
+    groupFilter.addEventListener('change', searchIcons);
+
+    // 刷新图标
+    refreshBtn.addEventListener('click', loadIcons);
+
+    // 随机颜色
+    randomColorsBtn.addEventListener('click', applyRandomColors);
+
+    // 下载全部 - 打开设置
+    downloadAllBtn.addEventListener('click', () => openDownloadSettingsModal('all'));
+
+    // 下载选中 - 打开设置
+    downloadSelectedBtn.addEventListener('click', () => openDownloadSettingsModal('selected'));
+
+    // 取消选择
+    deselectAllBtn.addEventListener('click', deselectAll);
+
+    // 模态框操作
+    closeModal.addEventListener('click', closeIconModal);
+
+    // 点击模态框外部关闭
+    iconModal.addEventListener('click', (e) => {
+      if (e.target === iconModal) closeIconModal();
+    });
+
+    // 复制SVG代码
+    copySvgBtn.addEventListener('click', () => {
+      if (currentIcon) {
+        const code = svgCode.textContent;
+        copyToClipboard(code).then(success => {
+          if (success) showToast('SVG代码已复制');
+          else showToast('复制失败，请手动复制', false);
+        });
+      }
+    });
+
+    // 下载SVG
+    downloadSvgBtn.addEventListener('click', () => {
+      if (currentIcon && downloadSvg(currentIcon, currentIconColor)) {
+        showToast('SVG已下载');
+      }
+    });
+
+    // 下载PNG
+    downloadPngBtn.addEventListener('click', () => {
+      if (currentIcon) {
+        showToast('正在转换为PNG...', true);
+        downloadPng(currentIcon, currentIconColor, 256)
+          .then(() => showToast('PNG已下载'))
+          .catch(() => showToast('PNG转换失败', false));
+      }
+    });
+
+    // 快速复制
+    copyDirectBtn.addEventListener('click', () => {
+      if (currentIcon) {
+        const code = svgCode.textContent;
+        copyToClipboard(code).then(success => {
+          if (success) {
+            showToast('SVG代码已复制');
+            closeIconModal();
+          } else {
+            showToast('复制失败，请手动复制', false);
+          }
+        });
+      }
+    });
+
+    // 颜色选择器变化
+    colorPicker.addEventListener('input', (e) => {
+      updateIconColor(e.target.value);
+    });
+
+    // 预设颜色选择
+    colorOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const color = option.getAttribute('data-color');
+        updateIconColor(color);
+      });
+    });
+
+    // 批量颜色选择
+    batchColorOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const color = option.getAttribute('data-color');
+        batchColorPicker.value = color;
+      });
+    });
+
+    // 批量颜色选择器变化
+    batchColorPicker.addEventListener('input', (e) => {
+      // 无需额外操作，值已更新
+    });
+
+    // 使用单独颜色选项变化
+    useIndividualColors.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        batchColorContainer.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        batchColorContainer.classList.remove('opacity-50', 'pointer-events-none');
+      }
+    });
+
+    // 重置颜色
+    resetColorBtn.addEventListener('click', resetIconColor);
+
+    // 关闭下载设置模态框
+    closeDownloadModal.addEventListener('click', closeDownloadModalFunc);
+    cancelDownloadBtn.addEventListener('click', closeDownloadModalFunc);
+
+    // 点击下载设置模态框外部关闭
+    downloadSettingsModal.addEventListener('click', (e) => {
+      if (e.target === downloadSettingsModal) closeDownloadModalFunc();
+    });
+
+    // 确认下载
+    confirmDownloadBtn.addEventListener('click', batchDownloadIcons);
+
+    // 键盘ESC关闭模态框
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!iconModal.classList.contains('pointer-events-none')) {
+          closeIconModal();
+        } else if (!downloadSettingsModal.classList.contains('pointer-events-none')) {
+          closeDownloadModalFunc();
+        }
+      }
+    });
+  </script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015"
+    integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ=="
+    data-cf-beacon='{"version":"2024.11.0","token":"c4c544c5d4c04727b9fa184f00e20156","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}'
+    crossorigin="anonymous"></script>
+</body>
+
+</html>

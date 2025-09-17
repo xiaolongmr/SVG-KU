@@ -589,14 +589,7 @@ function initializeEventListeners() {
             console.log(`randomPathColor: 已更新全局状态`);
           }
           
-          // 更新选中路径的高亮
-          if (selectedPathIndex >= 0) {
-            const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
-            if (elements[selectedPathIndex]) {
-              elements[selectedPathIndex].style.outline = '2px solid #409eff';
-              elements[selectedPathIndex].style.outlineOffset = '2px';
-            }
-          }
+
           
           updateSVGCodeDisplay();
           
@@ -1088,7 +1081,7 @@ function debounce(func, wait) {
 
 function createIconItem(icon) {
   const container = document.createElement('div');
-  container.className = 'icon-display-container cursor-pointer p-4 border rounded-lg hover:shadow-lg transition-all relative';
+  container.className = 'icon-display-container cursor-pointer p-4 border rounded-lg transition-all relative bg-white';
   container.dataset.iconId = icon.id;
   
   // 添加分类标签
@@ -1123,7 +1116,7 @@ function createIconItem(icon) {
   container.appendChild(categoryLabel);
   
   const svgWrapper = document.createElement('div');
-  svgWrapper.className = 'icon-svg-wrapper w-16 h-16 mx-auto mb-2';
+  svgWrapper.className = 'icon-svg-wrapper w-10 h-10 mx-auto mb-2 ';
   
   const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svgElement.className = 'icon-svg-element w-full h-full';
@@ -1167,7 +1160,7 @@ function createIconItem(icon) {
   }
   
   const nameLabel = document.createElement('div');
-  nameLabel.className = 'icon-name-label text-center text-sm text-gray-600';
+  nameLabel.className = 'icon-name-label text-center text-gray-600 font-medium truncate';
   nameLabel.textContent = icon.processedId || icon.id;
   
   svgWrapper.appendChild(svgElement);
@@ -1409,16 +1402,10 @@ function handlePathClick(event, index) {
     const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
     elements.forEach((el, i) => {
       if (i === index) {
-        // 选中的路径：直接设置CSS样式和selected属性
-        el.style.stroke = 'rgb(255, 0, 0)';
-        el.style.strokeDasharray = '2';
-        el.style.strokeWidth = '0.5px';
-        el.setAttribute('selected', 'true'); // 添加selected属性
-        el.classList.add('selected');
-        el.classList.add('path-selected');
+        // 选中的路径：使用统一函数设置选中状态
+        setPathSelectedState(el, index);
         
         // 调试日志：确认属性设置
-        console.log(`✅ 路径 ${index} 已设置selected属性:`, el.getAttribute('selected'));
         console.log(`✅ 选中的元素:`, el);
         console.log(`✅ 元素标签名:`, el.tagName);
         console.log(`✅ 元素类名:`, el.className);
@@ -1531,11 +1518,8 @@ function showPathColorPicker(event, pathIndex) {
           element.setAttribute('fill', finalColor);
         }
         
-        // 保持选中状态的视觉效果（临时的红色虚线边框）
-        element.setAttribute('selected', 'true');
-        element.style.stroke = 'rgb(255, 0, 0)';
-        element.style.strokeDasharray = '2';
-        element.style.strokeWidth = '0.5px';
+        // 保持选中状态的视觉效果（使用统一函数设置红色虚线边框）
+        setPathSelectedState(element, pathIndex);
         
         console.log(`实时预览: 路径 ${pathIndex} 颜色更新为 ${finalColor}，原始填充: ${originalFill}，原始描边: ${originalStroke}`);
       }
@@ -1567,6 +1551,26 @@ function showPathColorPicker(event, pathIndex) {
 }
 
 // 清除路径选中状态
+/**
+ * 设置SVG路径元素的选中状态（红色虚线描边）
+ * @param {Element} element - 要设置选中状态的SVG元素
+ * @param {number} index - 路径索引（用于日志）
+ */
+function setPathSelectedState(element, index) {
+  // 设置选中状态的红色虚线描边
+  element.setAttribute('selected', 'true');
+  element.style.stroke = 'rgb(255, 0, 0)';
+  element.style.strokeDasharray = '2';
+  element.style.strokeWidth = '0.5px';
+  element.classList.add('selected');
+  element.classList.add('path-selected');
+  
+  console.log(`✅ 路径 ${index} 已设置选中状态（红色虚线描边）`);
+}
+
+/**
+ * 清除SVG路径的选中状态
+ */
 function clearPathSelection() {
   selectedPathIndex = -1;
   
@@ -1668,11 +1672,8 @@ function updateIconColor(color, isReset = false) {
        element.offsetHeight; // 触发重排
        element.style.display = '';
        
-       // 确保选中状态保持（实时同步时保持选中状态）
-        element.setAttribute('selected', 'true');
-        element.style.stroke = 'rgb(255, 0, 0)';
-        element.style.strokeDasharray = '2';
-        element.style.strokeWidth = '0.5px';
+       // 确保选中状态保持（使用统一函数设置选中状态）
+        setPathSelectedState(element, selectedPathIndex);
        
        console.log(`updateIconColor: 路径 ${selectedPathIndex} 颜色更新完成，当前fill: ${element.getAttribute('fill')}`);
      } else {
