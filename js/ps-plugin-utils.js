@@ -29,7 +29,7 @@ class PSPluginUtils {
         // UXP环境检测
         this.isConnected = window.uxp && window.uxp.host;
       }
-      
+
       if (this.isConnected) {
         console.log('PS插件连接成功');
         return true;
@@ -72,7 +72,7 @@ class PSPluginUtils {
 
       // 校验颜色数据完整性
       const validatedSvg = this._validateSvgColors(iconData.svgCode);
-      
+
       // 生成图层名称：图标ID + 颜色标识
       const layerName = this._generateLayerName(iconData.id, iconData.svgCode);
 
@@ -91,7 +91,7 @@ class PSPluginUtils {
 
       // 模拟PS接口调用（实际实现时替换为真实PS API）
       const result = await this._mockPSLayerCreation(sendData);
-      
+
       return {
         success: true,
         layerId: result.layerId,
@@ -168,7 +168,7 @@ class PSPluginUtils {
             offsetX: (i % 5) * (options.size || this.defaultSize + 20),
             offsetY: Math.floor(i / 5) * (options.size || this.defaultSize + 20)
           });
-          
+
           if (result.success) {
             results.push(result);
           } else {
@@ -212,8 +212,10 @@ class PSPluginUtils {
       }
 
       // 移除透明或空颜色
+      // 对于fill属性，如果明确有fill属性但值为空/transparent/none，则设置默认颜色
       svgCode = svgCode.replace(/fill="(transparent|none|)"/g, 'fill="#409eff"');
-      svgCode = svgCode.replace(/stroke="(transparent|none|)"/g, 'stroke="#409eff"');
+      // 对于stroke属性，只替换已有的、但值为空/transparent/none的情况，不主动添加新的stroke属性
+      svgCode = svgCode.replace(/stroke="(transparent|none|)"/g, 'stroke="none"');
 
       return svgCode;
     } catch (error) {

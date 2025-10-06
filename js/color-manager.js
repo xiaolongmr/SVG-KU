@@ -12,36 +12,36 @@
 function createCustomColorPicker(containerId, currentColor, onColorChange) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  
+
   // 清空容器
   container.innerHTML = '';
-  
+
   // 创建颜色选择器容器
   const pickerContainer = document.createElement('div');
   pickerContainer.className = 'custom-color-picker';
-  
+
   // 创建颜色输入框
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
   colorInput.value = currentColor;
   colorInput.className = 'color-input';
-  
+
   // 创建颜色显示区域
   const colorDisplay = document.createElement('div');
   colorDisplay.className = 'color-display';
   colorDisplay.style.backgroundColor = currentColor;
-  
+
   // 创建颜色值文本
   const colorText = document.createElement('span');
   colorText.className = 'color-text';
   colorText.textContent = currentColor.toUpperCase();
-  
+
   // 组装元素
   pickerContainer.appendChild(colorInput);
   pickerContainer.appendChild(colorDisplay);
   pickerContainer.appendChild(colorText);
   container.appendChild(pickerContainer);
-  
+
   // 绑定事件
   colorInput.addEventListener('change', (e) => {
     const newColor = e.target.value;
@@ -49,7 +49,7 @@ function createCustomColorPicker(containerId, currentColor, onColorChange) {
     colorText.textContent = newColor.toUpperCase();
     if (onColorChange) onColorChange(newColor);
   });
-  
+
   return {
     setValue: (color) => {
       colorInput.value = color;
@@ -95,16 +95,16 @@ function generateRandomPathColors(pathCount) {
 function createRandomPathColorButton(containerId, onRandomize) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  
+
   const button = document.createElement('button');
   button.className = 'random-path-color-btn';
   button.innerHTML = '<i class="fa fa-random"></i> 路径随机上色';
   button.title = '为每个路径生成随机颜色';
-  
+
   button.addEventListener('click', () => {
     if (onRandomize) onRandomize();
   });
-  
+
   container.appendChild(button);
   return button;
 }
@@ -140,5 +140,135 @@ window.ColorManager = {
   generateRandomPathColors,
   createRandomPathColorButton,
   isColorModified,
-  isPathColorModified
+  isPathColorModified,
+
+  /**
+   * 获取带颜色的SVG代码
+   * @param {SVGElement} svgElement - SVG元素
+   * @returns {string} 带颜色的SVG代码
+   */
+  getSVGWithColors: function (svgElement) {
+    if (!svgElement) return '';
+
+    // 克隆SVG元素以避免修改原始元素
+    const clonedSvg = svgElement.cloneNode(true);
+
+    // 确保保留原始的viewBox、width、height等属性
+    // 这里不需要额外处理，因为cloneNode已经包含了所有属性
+
+    // 返回完整的SVG代码
+    return new XMLSerializer().serializeToString(clonedSvg);
+  },
+
+  /**
+   * 初始化SVG元素
+   * @param {SVGElement} svgElement - SVG元素
+   * @param {string} iconId - 图标ID
+   */
+  initializeSVG: function (svgElement, iconId) {
+    // 这个方法主要是为了接口一致性，实际初始化在应用颜色时进行
+    console.log(`初始化SVG元素: ${iconId}`);
+  },
+
+  /**
+   * 应用存储的颜色到SVG元素
+   * @param {SVGElement} svgElement - SVG元素
+   * @param {string} iconId - 图标ID
+   */
+  applyStoredColors: function (svgElement, iconId) {
+    if (!svgElement || !window.pathColors || !window.iconColors) return;
+
+    const pathMap = window.pathColors.get(iconId);
+    const iconColor = window.iconColors.get(iconId);
+    const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+    if (pathMap && pathMap.size > 0) {
+      // 应用路径级颜色
+      elements.forEach((element, index) => {
+        const pathColor = pathMap.get(index);
+        if (pathColor) {
+          // 检查原始填充状态，只在需要时设置填充颜色
+          const originalFill = element.getAttribute('fill');
+          if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
+            element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+          }
+
+          // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
+          // 不添加额外的stroke属性
+          const originalStroke = element.getAttribute('stroke');
+          if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
+            element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+          }
+        }
+      });
+    } else if (iconColor) {
+      // 应用统一颜色
+      elements.forEach(element => {
+        // 只对原本有填充颜色的元素设置新的填充颜色
+        const originalFill = element.getAttribute('fill');
+        if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
+          element.setAttribute('fill', iconColor === '#ffffff' ? '#000000' : iconColor);
+        }
+
+        // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
+        // 不添加额外的stroke属性
+        const originalStroke = element.getAttribute('stroke');
+        if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
+          element.setAttribute('stroke', iconColor === '#ffffff' ? '#000000' : iconColor);
+        }
+      });
+    }
+  },
+
+  /**
+   * 更改SVG元素的颜色
+   * @param {SVGElement} svgElement - SVG元素
+   * @param {string} iconId - 图标ID
+   * @param {string} color - 颜色值
+   * @param {number} pathIndex - 路径索引（可选）
+   * @returns {boolean} 是否成功
+   */
+  changeColor: function (svgElement, iconId, color, pathIndex) {
+    if (!svgElement || !color) return false;
+
+    try {
+      const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+      if (pathIndex !== undefined && pathIndex >= 0 && pathIndex < elements.length) {
+        // 更新单个路径颜色
+        const element = elements[pathIndex];
+
+        // 检查原始填充状态，只在需要时设置填充颜色
+        const originalFill = element.getAttribute('fill');
+        if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
+          element.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+        }
+
+        // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
+        // 不添加额外的stroke属性
+        const originalStroke = element.getAttribute('stroke');
+        if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
+          element.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+        }
+      } else {
+        // 更新所有路径颜色
+        elements.forEach(element => {
+          const originalFill = element.getAttribute('fill');
+          if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
+            element.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+          }
+
+          const originalStroke = element.getAttribute('stroke');
+          if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
+            element.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+          }
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('更改SVG颜色失败:', error);
+      return false;
+    }
+  }
 };
