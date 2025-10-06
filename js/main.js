@@ -2636,7 +2636,7 @@ function copyImageToClipboard(size = null) {
       const iconSpecificColor = iconColors.get(currentIcon.id);
       // 最终使用的颜色：图标特定颜色 > 当前选择的颜色 > 默认颜色
       const finalColor = iconSpecificColor || currentIconColor || '#409eff';
-
+      
       // 获取路径级颜色设置
       const pathMap = pathColors.get(currentIcon.id);
 
@@ -2651,7 +2651,7 @@ function copyImageToClipboard(size = null) {
       elements.forEach((element, index) => {
         // 确定该元素应该使用的颜色
         let elementColor = finalColor;
-
+        
         // 优先使用路径级颜色设置（这与预览状态一致）
         if (pathMap && pathMap.has(index)) {
           const mappedColor = pathMap.get(index);
@@ -2697,7 +2697,7 @@ function copyImageToClipboard(size = null) {
 
         // 确保preserveAspectRatio
         tempSvgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-
+        
         // 重要：不要为根SVG设置fill属性，避免覆盖内部元素的颜色
         // 移除可能存在的fill属性，让内部元素的颜色正确显示
         if (tempSvgElement.hasAttribute('fill')) {
