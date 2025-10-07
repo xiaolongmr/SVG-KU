@@ -2634,11 +2634,21 @@ function copyImageToClipboard(size = null) {
       // 关键修复：使用与预览状态完全一致的颜色设置
       // 获取用户为图标设置的实际颜色（优先从iconColors获取）
       const iconSpecificColor = iconColors.get(currentIcon.id);
-      // 最终使用的颜色：图标特定颜色 > 当前选择的颜色 > 默认颜色
-      const finalColor = iconSpecificColor || currentIconColor || '#409eff';
-      
       // 获取路径级颜色设置
       const pathMap = pathColors.get(currentIcon.id);
+      
+      // 最终使用的颜色：图标特定颜色 > 当前选择的颜色 > 默认颜色
+      // 注意：如果是重置后状态，我们应该使用预览界面的实际颜色，而不是简单使用默认蓝色
+      let finalColor;
+      if (iconSpecificColor) {
+        finalColor = iconSpecificColor;
+      } else if (pathMap && pathMap.size > 0) {
+        // 如果有路径级颜色设置，不使用全局颜色
+        finalColor = '#409eff'; // 默认值，实际会被路径颜色覆盖
+      } else {
+        // 重置状态：优先使用null，让元素保持原始颜色
+        finalColor = null;
+      }
 
       // 创建临时SVG元素用于处理
       const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2660,22 +2670,25 @@ function copyImageToClipboard(size = null) {
           }
         }
 
-        // 处理白色为黑色的特殊情况
-        if (elementColor === '#ffffff') {
-          elementColor = '#000000';
-        }
+        // 只有在有颜色设置时才应用颜色
+        if (elementColor !== null) {
+          // 处理白色为黑色的特殊情况
+          if (elementColor === '#ffffff') {
+            elementColor = '#000000';
+          }
 
-        // 关键修复：总是设置fill属性为用户指定的颜色，确保与预览一致
-        // 不再检查原始fill值，直接应用用户设置的颜色
-        element.setAttribute('fill', elementColor);
+          // 应用用户指定的颜色
+          element.setAttribute('fill', elementColor);
 
-        // 处理stroke属性，同样确保与预览一致
-        if (element.hasAttribute('stroke')) {
-          const currentStroke = element.getAttribute('stroke');
-          if (currentStroke && currentStroke !== 'none' && currentStroke !== '' && currentStroke !== 'transparent') {
-            element.setAttribute('stroke', elementColor);
+          // 处理stroke属性
+          if (element.hasAttribute('stroke')) {
+            const currentStroke = element.getAttribute('stroke');
+            if (currentStroke && currentStroke !== 'none' && currentStroke !== '' && currentStroke !== 'transparent') {
+              element.setAttribute('stroke', elementColor);
+            }
           }
         }
+        // 如果elementColor为null，保持元素的原始颜色
       });
 
       // 将处理后的SVG序列化回字符串
