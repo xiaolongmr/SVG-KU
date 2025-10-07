@@ -2,44 +2,48 @@
 <html lang="zh-CN">
 
 <head>
+  <!-- 文档基本元信息 -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SVG 图标复制工具</title>
+
+  <!-- 网站图标 -->
   <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg">
   <link rel="icon" href="/favicon/favicon.ico" />
 
-  <!-- 外部资源 -->
+  <!-- 外部CSS和JavaScript资源 -->
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+
   <!-- font-awesome 图标库  
-   pro版国内镜像地址：https://font.onmicrosoft.cn/font6pro@6.7.1/css/all.min.css
-   free版国内镜像地址：https://font.onmicrosoft.cn/@fortawesome/fontawesome-free@7.1.0/css/all.css
-   -->
+     pro版国内镜像地址：https://font.onmicrosoft.cn/font6pro@6.7.1/css/all.min.css
+     free版国内镜像地址：https://font.onmicrosoft.cn/@fortawesome/fontawesome-free@7.1.0/css/all.css
+     -->
   <link href="https://font.onmicrosoft.cn/font6pro@6.7.1/css/all.min.css" rel="stylesheet">
-  <!-- 引入JSZip用于压缩文件 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- 引入FileSaver用于保存文件 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  <!-- 引入html2canvas用于转换为图片 -->
+
+  <!-- 文件操作相关库 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- 用于文件压缩 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> <!-- 用于文件保存 -->
+
+  <!-- 图片处理相关库 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <!-- 引入SVG.js用于SVG操作 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.2.0/svg.min.js"></script>
+  <!-- 用于HTML元素转图片 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.2.0/svg.min.js"></script> <!-- 用于SVG操作 -->
 
-
+  <!-- 图标资源文件 -->
   <!-- 网站的核心js文件,所有图标资源都来自这个js文件 -->
   <script src="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.js"></script>
   <!-- 暂时没有用到，网站所有的图标资源 css版 -->
   <link rel="stylesheet" href="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.css">
 
-
   <!-- 本地样式文件 -->
   <link rel="stylesheet" href="css/styles.css">
 
-  <!-- Prism.js 语法高亮库 -->
+  <!-- 语法高亮库 -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
-  <!-- Tailwind 配置 -->
+  <!-- Tailwind CSS 配置 -->
   <script>
     tailwind.config = {
       theme: {
@@ -65,9 +69,10 @@
 </head>
 
 <body class="font-inter bg-neutral-100 text-neutral-800 min-h-screen transition-basic">
-  <!-- 顶部导航 -->
+  <!-- 顶部导航栏 -->
   <header class="bg-white shadow-sm py-4 px-6 sticky top-0 z-30">
     <div class="container mx-auto flex flex-wrap justify-between items-center gap-4">
+      <!-- Logo和标题 -->
       <div class="flex items-center space-x-2">
         <div class="logo-container">
           <i class="fa fa-cube text-primary logo-icon"></i>
@@ -76,6 +81,7 @@
         <h1 class="text-xl font-bold">飞草科技图标库</h1>
       </div>
 
+      <!-- 搜索和控制按钮区域 -->
       <div class="flex items-center gap-3 w-full md:w-auto">
         <!-- 搜索框 -->
         <div class="relative flex-grow md:flex-grow-0 md:w-64">
@@ -102,12 +108,15 @@
   <main class="container mx-auto px-6 py-8">
     <!-- 统计和操作区 -->
     <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <!-- 图标统计信息 -->
       <p class="text-sm text-gray-500">
         共 <span id="iconCount" class="text-primary font-medium">0</span> 个图标
         <span id="selectedCount" class="ml-2 text-gray-500 hidden">
           (已选择 <span class="text-primary font-medium">0</span> 个)
         </span>
       </p>
+
+      <!-- 操作按钮区域 -->
       <div class="flex flex-wrap gap-2">
         <!-- 分组筛选 -->
         <div class="relative">
@@ -123,6 +132,7 @@
           </select>
         </div>
 
+        <!-- 批量操作按钮 -->
         <button id="deselectAllBtn"
           class="text-sm bg-white border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1 hidden">
           <i class="fa fa-times"></i>
@@ -146,7 +156,7 @@
       </div>
     </div>
 
-    <!-- 多选提示 - 通用版本 -->
+    <!-- 多选提示信息 -->
     <div class="bg-blue-50 border-l-4 border-primary p-4 mb-6 rounded-r text-sm">
       <div class="flex items-start">
         <i class="fa fa-info-circle text-primary mt-0.5 mr-2"></i>
@@ -155,9 +165,9 @@
       </div>
     </div>
 
-    <!-- 图标网格 -->
+    <!-- 图标网格展示区 -->
     <div id="iconGrid" class="icon-grid">
-      <!-- 加载状态 -->
+      <!-- 初始加载状态 -->
       <div class="col-span-full flex justify-center items-center py-20">
         <div class="flex flex-col items-center">
           <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -166,7 +176,7 @@
       </div>
     </div>
 
-    <!-- 加载更多 -->
+    <!-- 加载更多按钮区域 -->
     <div id="loadMoreContainer" class="loading-more hidden">
       <div class="loading-state flex flex-col items-center">
         <div class="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
@@ -188,18 +198,30 @@
   <!-- 图标详情模态框 -->
   <div id="iconModal"
     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
+    <!-- 左右导航按钮 -->
+    <button id="prevIconBtn"
+      class="absolute left-2 sm:left-4 md:left-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
+      <i class="fa fa-angle-left text-xl"></i>
+    </button>
+    <button id="nextIconBtn"
+      class="absolute right-2 sm:right-4 md:right-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
+      <i class="fa fa-angle-right text-xl"></i>
+    </button>
     <div
       class="bg-white rounded-xl shadow-xl max-w-5xl w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
+      <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
         <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
         <button id="closeModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
           <i class="fa fa-times"></i>
         </button>
       </div>
+
+      <!-- 模态框内容区域 -->
       <div class="p-5">
         <!-- 优化布局：使用更紧凑的网格系统 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- 图标预览 - 占据左侧一列 -->
+          <!-- 图标预览区域 - 占据左侧一列 -->
           <div class="lg:col-span-1">
             <div class="detail-preview-container">
               <div class="detail-icon-wrapper">
@@ -208,8 +230,9 @@
             </div>
           </div>
 
-          <!-- 图标信息和操作 - 占据右侧两列 -->
+          <!-- 图标信息和操作区域 - 占据右侧两列 -->
           <div class="lg:col-span-2">
+            <!-- 图标基本信息 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">图标名称</label>
@@ -221,7 +244,7 @@
               </div>
             </div>
 
-            <!-- 新增：尺寸选择器 -->
+            <!-- 尺寸选择器 -->
             <div class="mb-5 p-4 bg-neutral-50 rounded-lg">
               <label class="block text-sm font-medium text-gray-700 mb-2">选择尺寸 (适用于 PNG)</label>
               <div class="flex flex-wrap gap-2" id="sizeOptions">
@@ -232,7 +255,7 @@
               </div>
             </div>
 
-            <!-- 颜色选择器 - 更紧凑的布局 -->
+            <!-- 颜色选择器区域 -->
             <div class="mb-5 p-4 bg-neutral-50 rounded-lg">
               <div class="flex justify-between items-center mb-3">
                 <label class="block text-sm font-medium text-gray-700">图标颜色</label>
@@ -261,13 +284,9 @@
                   </div>
                 </label>
               </div>
-
-
             </div>
 
-            <!-- 当前选中路径信息已移除，使用新的路径选择方式 -->
-
-            <!-- SVG代码区域 - 优化高度和布局 -->
+            <!-- SVG代码展示区域 -->
             <div class="mb-5">
               <label class="block text-sm font-medium text-gray-700 mb-1">SVG 代码</label>
               <div class="relative">
@@ -280,7 +299,7 @@
               </div>
             </div>
 
-            <!-- 操作按钮区域 - 添加复制图片按钮 -->
+            <!-- 操作按钮区域 -->
             <div class="flex gap-3 flex-wrap pt-2 border-t border-neutral-100">
               <button id="downloadSvgBtn"
                 class="bg-primary hover:bg-primary/90 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
@@ -313,12 +332,15 @@
     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
     <div
       class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
+      <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
         <h3 class="text-lg font-semibold">下载设置</h3>
         <button id="closeDownloadModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
           <i class="fa fa-times"></i>
         </button>
       </div>
+
+      <!-- 模态框内容区域 -->
       <div class="p-5">
         <!-- 导出格式选择 -->
         <div class="mb-5">
@@ -385,6 +407,7 @@
           </label>
         </div>
 
+        <!-- 统一颜色选择器 -->
         <div id="batchColorContainer" class="mb-5">
           <label class="block text-sm font-medium text-gray-700 mb-2">统一图标颜色 (如不使用单独颜色)</label>
           <div class="flex items-center gap-3">
@@ -401,6 +424,7 @@
           </div>
         </div>
 
+        <!-- 底部操作按钮 -->
         <div class="flex justify-end gap-3 pt-3 border-t border-neutral-200">
           <button id="cancelDownloadBtn"
             class="bg-white border border-neutral-200 hover:bg-neutral-100 text-sm px-4 py-2 rounded-lg transition-basic">
@@ -415,20 +439,20 @@
     </div>
   </div>
 
-  <!-- 提示框 -->
+  <!-- 提示框组件 -->
   <div id="toast"
     class="fixed bottom-6 right-6 px-4 py-2 rounded-lg shadow-lg transform translate-y-10 opacity-0 transition-basic flex items-center gap-2 z-50">
   </div>
 
-  <!-- 隐藏的PNG转换容器 -->
+  <!-- 隐藏的PNG转换容器 - 用于后台进行PNG转换处理 -->
   <div id="pngConversionContainer" class="hidden absolute top-0 left-0 z-0"></div>
 
-  <!-- 本地脚本文件 -->
-  <script src="js/syntax-highlight.js"></script>
-  <script src="js/color-manager.js"></script>
-  <script src="js/download-manager.js"></script>
-  <script src="js/ps-plugin-utils.js"></script>
-  <script src="js/main.js"></script>
+  <!-- 本地脚本文件引入 -->
+  <script src="js/syntax-highlight.js"></script> <!-- 语法高亮功能 -->
+  <script src="js/color-manager.js"></script> <!-- 颜色管理功能 -->
+  <script src="js/download-manager.js"></script> <!-- 下载管理功能 -->
+  <script src="js/ps-plugin-utils.js"></script> <!-- Photoshop插件相关功能 -->
+  <script src="js/main.js"></script> <!-- 主脚本逻辑 -->
 </body>
 
 </html>

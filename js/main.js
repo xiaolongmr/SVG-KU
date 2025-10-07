@@ -388,25 +388,25 @@ function initializeEventListeners() {
   function generatePNGBlob(svgCode, size, icon) {
     return new Promise((resolve, reject) => {
       try {
-              // 创建DOM元素来安全处理SVG，避免字符串操作转义问题
+        // 创建DOM元素来安全处理SVG，避免字符串操作转义问题
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = svgCode;
         let svgElement = tempDiv.querySelector('svg');
-        
+
         // 如果没有找到SVG元素，创建一个新的
         if (!svgElement) {
           svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         }
-        
+
         // 设置必要的属性
         svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         svgElement.setAttribute('viewBox', icon.viewBox || '0 0 1024 1024');
         svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        
+
         // 移除固定宽高属性
         svgElement.removeAttribute('width');
         svgElement.removeAttribute('height');
-        
+
         // 获取完整的SVG代码
         const fullSvgCode = svgElement.outerHTML;
 
@@ -967,8 +967,26 @@ function initializeEventListeners() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeIconModal();
+    } else if (e.key === 'ArrowLeft' && iconModal && !iconModal.classList.contains('pointer-events-none')) {
+      // 左箭头键导航到上一个图标
+      navigateToPrevIcon();
+    } else if (e.key === 'ArrowRight' && iconModal && !iconModal.classList.contains('pointer-events-none')) {
+      // 右箭头键导航到下一个图标
+      navigateToNextIcon();
     }
   });
+
+  // 左右导航按钮事件
+  const prevIconBtn = document.getElementById('prevIconBtn');
+  const nextIconBtn = document.getElementById('nextIconBtn');
+
+  if (prevIconBtn) {
+    prevIconBtn.addEventListener('click', navigateToPrevIcon);
+  }
+
+  if (nextIconBtn) {
+    nextIconBtn.addEventListener('click', navigateToNextIcon);
+  }
 
   // 同步开关事件监听器
   const syncCheckbox = document.getElementById('syncWithHomePage');
@@ -1483,7 +1501,21 @@ function openIconDetail(icon) {
     svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svgElement.setAttribute('width', '200');
     svgElement.setAttribute('height', '200');
-    svgElement.innerHTML = icon.content;
+
+    // 检查icon.content是否已经包含完整的SVG标签，如果是，则只提取内部内容
+    let content = icon.content.trim();
+    if (content.startsWith('<svg') && content.endsWith('</svg>')) {
+      // 创建临时元素来解析SVG内容
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      const tempSvg = tempDiv.querySelector('svg');
+      if (tempSvg) {
+        // 只使用SVG的内部内容，避免嵌套
+        content = tempSvg.innerHTML;
+      }
+    }
+
+    svgElement.innerHTML = content;
 
     svgWrapper.appendChild(svgElement);
     modalIconPreview.innerHTML = '';
@@ -1634,6 +1666,30 @@ function updateSVGCodeDisplay() {
     }
   }
   // 如果用户没有修改颜色，保持原始样子
+  
+  // 检测并移除嵌套的SVG标签
+  if (svgCodeWithColor.includes('<svg') && svgCodeWithColor.includes('</svg>')) {
+    // 创建临时元素来解析SVG内容
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = svgCodeWithColor;
+    const tempSvg = tempDiv.querySelector('svg');
+    if (tempSvg) {
+      // 检查是否有嵌套SVG
+      const nestedSvg = tempSvg.querySelector('svg');
+      if (nestedSvg) {
+        console.log('updateSVGCodeDisplay: 检测到嵌套SVG，提取内部SVG内容');
+        // 创建新的临时SVG元素
+        const cleanSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        // 复制原始SVG的属性
+        Array.from(tempSvg.attributes).forEach(attr => {
+          cleanSvg.setAttribute(attr.name, attr.value);
+        });
+        // 使用嵌套SVG的内部内容
+        cleanSvg.innerHTML = nestedSvg.innerHTML;
+        svgCodeWithColor = new XMLSerializer().serializeToString(cleanSvg);
+      }
+    }
+  }
 
   const formattedCode = svgCodeWithColor
     .replace(/></g, '>\n<')
@@ -1800,14 +1856,9 @@ function showPathColorPicker(event, pathIndices) {
   function handleOutsideClick(e) {
     // 确保弹窗存在并且点击目标不在弹窗内
     if (popup && !popup.contains(e.target)) {
-      // 检查点击目标是否在SVG元素或其父容器内
-      const svgElement = modalIconPreview.querySelector('.icon-svg-element');
-      const isClickOnSvg = svgElement && (svgElement.contains(e.target) || svgElement === e.target);
-
-      // 只有当点击既不在弹窗内，也不在SVG元素上时，才清除选中状态
-      if (!isClickOnSvg) {
-        clearPathSelection();
-      }
+      // 根据需求：只要颜色选择弹窗不显示，就不应该显示红色虚线描边
+      // 所以无论点击哪里，只要弹窗关闭，就清除路径选中状态
+      clearPathSelection();
 
       document.removeEventListener('click', handleOutsideClick);
       popup.remove();
@@ -1893,7 +1944,10 @@ function showPathColorPicker(event, pathIndices) {
     const pathNumbers = pathIndexArray.map(idx => idx + 1).join(', ');
     showToast(`路径 ${pathNumbers} 颜色已更新为 ${newColor}`);
 
-    // 隐藏弹窗但保留选中状态，方便连续编辑
+    // 清除路径选中状态（移除红色虚线描边）
+    clearPathSelection();
+
+    // 隐藏弹窗
     document.removeEventListener('click', handleOutsideClick);
     popup.remove();
   });
@@ -1903,7 +1957,10 @@ function showPathColorPicker(event, pathIndices) {
     // 传入isReset=true，让updateIconColor根据pathColors正确恢复颜色
     updateIconColor(currentIconColor, true);
 
-    // 隐藏弹窗但保留选中状态
+    // 清除路径选中状态（移除红色虚线描边）
+    clearPathSelection();
+
+    // 隐藏弹窗
     document.removeEventListener('click', handleOutsideClick);
     popup.remove();
   });
@@ -2390,8 +2447,21 @@ function resetIconColor() {
       const height = svgElement.getAttribute('height');
       const viewBox = svgElement.getAttribute('viewBox');
 
+      // 检查iconData.content是否已经包含完整的SVG标签，如果是，则只提取内部内容
+      let content = iconData.content.trim();
+      if (content.startsWith('<svg') && content.endsWith('</svg>')) {
+        // 创建临时元素来解析SVG内容
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const tempSvg = tempDiv.querySelector('svg');
+        if (tempSvg) {
+          // 只使用SVG的内部内容，避免嵌套
+          content = tempSvg.innerHTML;
+        }
+      }
+
       // 重置内容
-      svgElement.innerHTML = iconData.content;
+      svgElement.innerHTML = content;
 
       // 恢复重要属性
       if (width) svgElement.setAttribute('width', width);
@@ -2440,8 +2510,21 @@ function resetIconColor() {
         const height = homeIconSvg.getAttribute('height');
         const viewBox = homeIconSvg.getAttribute('viewBox');
 
+        // 检查iconData.content是否已经包含完整的SVG标签，如果是，则只提取内部内容
+        let content = iconData.content.trim();
+        if (content.startsWith('<svg') && content.endsWith('</svg>')) {
+          // 创建临时元素来解析SVG内容
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = content;
+          const tempSvg = tempDiv.querySelector('svg');
+          if (tempSvg) {
+            // 只使用SVG的内部内容，避免嵌套
+            content = tempSvg.innerHTML;
+          }
+        }
+
         // 重置内容
-        homeIconSvg.innerHTML = iconData.content;
+        homeIconSvg.innerHTML = content;
 
         // 恢复重要属性
         if (width) homeIconSvg.setAttribute('width', width);
@@ -2480,6 +2563,40 @@ function resetIconColor() {
   updateSVGCodeDisplay();
   showToast('已重置为原始颜色');
   console.log(`resetIconColor: 已重置图标 ${currentIcon.id} 的颜色`);
+}
+
+function navigateToPrevIcon() {
+  if (!currentIcon || allIcons.length === 0) return;
+
+  // 获取当前图标在allIcons数组中的索引
+  const currentIndex = allIcons.findIndex(icon => icon.id === currentIcon.id);
+
+  if (currentIndex > 0) {
+    // 如果不是第一个图标，显示上一个图标
+    const prevIcon = allIcons[currentIndex - 1];
+    openIconDetail(prevIcon);
+  } else {
+    // 如果是第一个图标，显示最后一个图标（循环）
+    const lastIcon = allIcons[allIcons.length - 1];
+    openIconDetail(lastIcon);
+  }
+}
+
+function navigateToNextIcon() {
+  if (!currentIcon || allIcons.length === 0) return;
+
+  // 获取当前图标在allIcons数组中的索引
+  const currentIndex = allIcons.findIndex(icon => icon.id === currentIcon.id);
+
+  if (currentIndex < allIcons.length - 1) {
+    // 如果不是最后一个图标，显示下一个图标
+    const nextIcon = allIcons[currentIndex + 1];
+    openIconDetail(nextIcon);
+  } else {
+    // 如果是最后一个图标，显示第一个图标（循环）
+    const firstIcon = allIcons[0];
+    openIconDetail(firstIcon);
+  }
 }
 
 function closeIconModal() {
