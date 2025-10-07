@@ -24,25 +24,6 @@ body {
   content-visibility: auto;
 }
 
-/* 复制按钮动画 */
-.copy-animation {
-  transform: scale(0.95);
-  background-color: #22c55e !important;
-}
-
-/* 隐藏/显示状态 */
-.copied-text {
-  display: none;
-}
-
-.show-copied .copied-text {
-  display: inline;
-}
-
-.show-copied .copy-text {
-  display: none;
-}
-
 
 
 .icon-display-container:hover {
@@ -574,7 +555,12 @@ header {
 
 /* 详情页预览容器 */
 .detail-preview-container {
-  background: #f5f7fa;
+  /* 模拟ps透明背景网格效果开始 */
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #eee 25%, transparent 0, transparent 75%, #eee 0), linear-gradient(45deg, #eee 25%, transparent 0, transparent 75%, #eee 0);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  /* 模拟ps透明背景网格效果结束 */
   padding: 16px;
   border-radius: 8px;
   flex-shrink: 0;
@@ -582,7 +568,7 @@ header {
   align-items: center;
   justify-content: center;
   min-width: 200px;
-  min-height: 200px;
+  min-height: 280px;
   overflow: hidden;
   /* 确保缩放内容不会超出边界 */
   position: relative;
@@ -823,11 +809,6 @@ header {
   @apply text-sm text-gray-400 italic;
 }
 
-/* 详情页预览容器 - 重新设计 */
-.detail-preview-container {
-  @apply bg-neutral-50 border border-neutral-200 rounded-xl p-6 flex flex-col gap-4;
-  min-height: 280px;
-}
 
 .detail-icon-wrapper {
   @apply flex-1 flex items-center justify-center bg-white rounded-lg border border-neutral-100 p-4;

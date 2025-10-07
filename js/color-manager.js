@@ -153,8 +153,13 @@ window.ColorManager = {
     // 克隆SVG元素以避免修改原始元素
     const clonedSvg = svgElement.cloneNode(true);
 
-    // 确保保留原始的viewBox、width、height等属性
-    // 这里不需要额外处理，因为cloneNode已经包含了所有属性
+    // 获取图标ID
+    const iconId = svgElement.closest('[data-icon-id]')?.getAttribute('data-icon-id');
+
+    // 如果找到了图标ID，应用存储的颜色
+    if (iconId) {
+      this.applyStoredColors(clonedSvg, iconId);
+    }
 
     // 返回完整的SVG代码
     return new XMLSerializer().serializeToString(clonedSvg);

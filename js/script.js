@@ -1371,19 +1371,81 @@ function batchDownloadIcons() {
     let svgCode = icon.svgCode;
 
     if (useIndividual) {
-      // 使用个性化颜色：优先从DOM获取当前显示的颜色信息
-      const iconElement = document.querySelector(`[data-icon-id="${icon.id}"]`);
-      if (iconElement && window.svgColorManager) {
+      // 优先从DOM获取当前显示的SVG元素（包含最新的颜色修改）
+      // 改进的选择器逻辑，支持多种可能的元素位置
+      let iconElement = document.querySelector(`[data-icon-id="${icon.id}"]`);
+
+      // 如果直接通过ID找不到，尝试在iconGrid中查找
+      if (!iconElement) {
+        iconElement = document.getElementById('iconGrid')?.querySelector(`[data-icon-id="${icon.id}"]`);
+      }
+
+      // 再尝试更宽泛的查找
+      if (!iconElement) {
+        const allIconElements = document.querySelectorAll('[data-icon-id]');
+        for (let el of allIconElements) {
+          if (el.getAttribute('data-icon-id') === icon.id) {
+            iconElement = el;
+            break;
+          }
+        }
+      }
+
+      if (iconElement && window.ColorManager) {
         const svgElement = iconElement.querySelector('svg');
         if (svgElement) {
-          // 使用SVGColorManager获取带颜色的SVG代码
-          svgCode = window.svgColorManager.getSVGWithColors(svgElement);
-          console.log(`批量下载: 使用SVGColorManager获取图标 ${icon.id} 的个性化SVG代码`);
+          // 使用ColorManager获取带颜色的SVG代码
+          try {
+            svgCode = window.ColorManager.getSVGWithColors(svgElement);
+            console.log(`批量下载: 成功获取图标 ${icon.id} 的SVG颜色代码`);
+          } catch (error) {
+            console.error(`批量下载: 获取SVG颜色代码失败 ${icon.id}:`, error);
+            // 出错时使用备用方案
+          }
         } else {
-          // 降级到颜色数据处理
-          console.log(`批量下载: 图标 ${icon.id} 未找到SVG元素，使用个性化颜色处理逻辑`);
+          console.log(`批量下载: 图标 ${icon.id} 元素中未找到SVG子元素`);
+          // 降级处理：检查是否使用原始颜色（用户未修改）
+          const useOriginalColor = !window.ColorManager?.isColorModified(icon.id, originalIconColors, iconColors) &&
+            !window.ColorManager?.isPathColorModified(icon.id, pathColors);
+
+          if (!useOriginalColor) {
+            // 应用用户设置的颜色
+            const pathMap = pathColors.get(icon.id);
+            const iconColor = iconColors.get(icon.id) || batchColor;
+
+            if (pathMap && pathMap.size > 0) {
+              // 应用路径级颜色
+              const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              tempSvg.innerHTML = svgCode;
+              const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+
+              elements.forEach((element, index) => {
+                const pathColor = pathMap.get(index) || iconColor;
+                element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+                element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+              });
+
+              svgCode = new XMLSerializer().serializeToString(tempSvg);
+            } else {
+              // 应用统一颜色
+              svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${iconColor}"`);
+              svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${iconColor}"`);
+              if (!svgCode.includes(`fill="${iconColor}"`)) {
+                svgCode = svgCode.replace('<svg', `<svg fill="${iconColor}"`);
+              }
+            }
+          }
+        }
+      } else {
+        console.log(`批量下载: 图标 ${icon.id} 未找到DOM元素或ColorManager不可用，使用个性化颜色处理`);
+        // 降级处理：检查是否使用原始颜色（用户未修改）
+        const useOriginalColor = !window.ColorManager?.isColorModified(icon.id, originalIconColors, iconColors) &&
+          !window.ColorManager?.isPathColorModified(icon.id, pathColors);
+
+        if (!useOriginalColor) {
+          // 应用用户设置的颜色
           const pathMap = pathColors.get(icon.id);
-          const iconColor = iconColors.get(icon.id);
+          const iconColor = iconColors.get(icon.id) || batchColor;
 
           if (pathMap && pathMap.size > 0) {
             // 应用路径级颜色
@@ -1392,15 +1454,13 @@ function batchDownloadIcons() {
             const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
 
             elements.forEach((element, index) => {
-              const pathColor = pathMap.get(index);
-              if (pathColor) {
-                element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
-                element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
-              }
+              const pathColor = pathMap.get(index) || iconColor;
+              element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+              element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
             });
 
             svgCode = new XMLSerializer().serializeToString(tempSvg);
-          } else if (iconColor) {
+          } else {
             // 应用统一颜色
             svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${iconColor}"`);
             svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${iconColor}"`);
@@ -1409,43 +1469,14 @@ function batchDownloadIcons() {
             }
           }
         }
-      } else {
-        // 降级到颜色数据处理
-        console.log(`批量下载: 图标 ${icon.id} 未找到DOM元素或SVGColorManager不可用，使用个性化颜色处理逻辑`);
-        const pathMap = pathColors.get(icon.id);
-        const iconColor = iconColors.get(icon.id);
-
-        if (pathMap && pathMap.size > 0) {
-          // 应用路径级颜色
-          const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          tempSvg.innerHTML = svgCode;
-          const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
-
-          elements.forEach((element, index) => {
-            const pathColor = pathMap.get(index);
-            if (pathColor) {
-              element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
-              element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
-            }
-          });
-
-          svgCode = new XMLSerializer().serializeToString(tempSvg);
-        } else if (iconColor) {
-          // 应用统一颜色
-          svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${iconColor}"`);
-          svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${iconColor}"`);
-          if (!svgCode.includes(`fill="${iconColor}"`)) {
-            svgCode = svgCode.replace('<svg', `<svg fill="${iconColor}"`);
-          }
-        }
       }
     } else {
-        // 使用统一批量颜色
-        svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${batchColor}"`);
-        svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${batchColor}"`);
-        if (!svgCode.includes(`fill="${batchColor}"`)) {
-          svgCode = svgCode.replace('<svg', `<svg fill="${batchColor}"`);
-        }
+      // 使用统一批量颜色
+      console.log(`批量下载: 图标 ${icon.id} 应用统一批量颜色 ${batchColor}`);
+      svgCode = svgCode.replace(/fill="[^"]*"/g, `fill="${batchColor}"`);
+      svgCode = svgCode.replace(/stroke="[^"]*"/g, `stroke="${batchColor}"`);
+      if (!svgCode.includes(`fill="${batchColor}"`)) {
+        svgCode = svgCode.replace('<svg', `<svg fill="${batchColor}"`);
       }
     }
 
@@ -1912,7 +1943,24 @@ function downloadSingleIcon(icon, format) {
       }
 
       // 创建完整的SVG代码
-      const fullSvgCode = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${icon.viewBox || '0 0 1024 1024'}" width="${selectedSize}" height="${selectedSize}">${svgCode.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+      // 创建DOM元素来安全处理SVG
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = svgCode;
+    let svgElement = tempDiv.querySelector('svg');
+    
+    if (!svgElement) {
+      svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    }
+    
+    // 移除原SVG标签，获取内容
+    const svgContent = Array.from(svgElement.children).map(child => child.outerHTML).join('');
+    
+    // 创建新的SVG代码，移除固定宽高设置
+    const fullSvgCode = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + 
+                        (icon.viewBox || '0 0 1024 1024') + 
+                        '" preserveAspectRatio="xMidYMid meet">' + 
+                        svgContent + 
+                        '</svg>';
 
       // 转换为PNG
       const svgDataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(fullSvgCode)));
