@@ -24,6 +24,25 @@ body {
   content-visibility: auto;
 }
 
+/* 复制按钮动画 */
+.copy-animation {
+  transform: scale(0.95);
+  background-color: #22c55e !important;
+}
+
+/* 隐藏/显示状态 */
+.copied-text {
+  display: none;
+}
+
+.show-copied .copied-text {
+  display: inline;
+}
+
+.show-copied .copy-text {
+  display: none;
+}
+
 
 
 .icon-display-container:hover {

@@ -454,8 +454,18 @@ function initializeEventListeners() {
           .trim();
 
         copyToClipboard(compressedCode).then(success => {
-          if (success) showToast('SVG代码已压缩复制');
-          else showToast('复制失败，请手动复制', false);
+          if (success) {
+            showToast('SVG代码已压缩复制');
+            // 添加复制动画和文字变化
+            copySvgBtn.classList.add('copy-animation', 'show-copied');
+            
+            // 1.5秒后恢复原状
+            setTimeout(() => {
+              copySvgBtn.classList.remove('copy-animation', 'show-copied');
+            }, 1500);
+          } else {
+            showToast('复制失败，请手动复制', false);
+          }
         });
       }
     });
@@ -2621,8 +2631,19 @@ function copyImageToClipboard(size = null) {
 
   return new Promise((resolve) => {
     try {
-      // 获取图标SVG代码（严格使用预览时的颜色状态）
-      let svgCode = currentIcon.content || currentIcon.svgCode;
+      // 复制下载PNG的逻辑：优先从DOM获取当前显示的SVG元素（包含最新的颜色修改）
+      const svgElement = modalIconPreview.querySelector('svg');
+      let svgCode;
+
+      if (svgElement && window.svgColorManager) {
+        // 使用SVGColorManager获取带颜色的SVG代码
+        svgCode = window.svgColorManager.getSVGWithColors(svgElement);
+        console.log('copyImageToClipboard: 使用SVGColorManager获取最新SVG代码');
+      } else {
+        // 降级到原有逻辑
+        svgCode = currentSvgCode || currentIcon.svgCode;
+        console.log('copyImageToClipboard: 使用降级SVG代码');
+      }
 
       // 确保获取到了SVG代码
       if (!svgCode) {
@@ -2630,69 +2651,6 @@ function copyImageToClipboard(size = null) {
         resolve(false);
         return;
       }
-
-      // 关键修复：使用与预览状态完全一致的颜色设置
-      // 获取用户为图标设置的实际颜色（优先从iconColors获取）
-      const iconSpecificColor = iconColors.get(currentIcon.id);
-      // 获取路径级颜色设置
-      const pathMap = pathColors.get(currentIcon.id);
-      
-      // 最终使用的颜色：图标特定颜色 > 当前选择的颜色 > 默认颜色
-      // 注意：如果是重置后状态，我们应该使用预览界面的实际颜色，而不是简单使用默认蓝色
-      let finalColor;
-      if (iconSpecificColor) {
-        finalColor = iconSpecificColor;
-      } else if (pathMap && pathMap.size > 0) {
-        // 如果有路径级颜色设置，不使用全局颜色
-        finalColor = '#409eff'; // 默认值，实际会被路径颜色覆盖
-      } else {
-        // 重置状态：优先使用null，让元素保持原始颜色
-        finalColor = null;
-      }
-
-      // 创建临时SVG元素用于处理
-      const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      tempSvg.innerHTML = svgCode;
-
-      // 获取所有需要处理的SVG元素
-      const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
-
-      // 严格按照预览状态应用颜色
-      elements.forEach((element, index) => {
-        // 确定该元素应该使用的颜色
-        let elementColor = finalColor;
-        
-        // 优先使用路径级颜色设置（这与预览状态一致）
-        if (pathMap && pathMap.has(index)) {
-          const mappedColor = pathMap.get(index);
-          if (mappedColor && mappedColor !== '') {
-            elementColor = mappedColor;
-          }
-        }
-
-        // 只有在有颜色设置时才应用颜色
-        if (elementColor !== null) {
-          // 处理白色为黑色的特殊情况
-          if (elementColor === '#ffffff') {
-            elementColor = '#000000';
-          }
-
-          // 应用用户指定的颜色
-          element.setAttribute('fill', elementColor);
-
-          // 处理stroke属性
-          if (element.hasAttribute('stroke')) {
-            const currentStroke = element.getAttribute('stroke');
-            if (currentStroke && currentStroke !== 'none' && currentStroke !== '' && currentStroke !== 'transparent') {
-              element.setAttribute('stroke', elementColor);
-            }
-          }
-        }
-        // 如果elementColor为null，保持元素的原始颜色
-      });
-
-      // 将处理后的SVG序列化回字符串
-      svgCode = new XMLSerializer().serializeToString(tempSvg);
 
       // 确保SVG有正确的viewBox和尺寸属性
       const tempDiv = document.createElement('div');
@@ -2702,14 +2660,18 @@ function copyImageToClipboard(size = null) {
       if (tempSvgElement) {
         // 设置viewBox
         const viewBox = currentIcon.viewBox || '0 0 1024 1024';
-        tempSvgElement.setAttribute('viewBox', viewBox);
+        if (!tempSvgElement.getAttribute('viewBox')) {
+          tempSvgElement.setAttribute('viewBox', viewBox);
+        }
 
         // 设置SVG尺寸
         tempSvgElement.setAttribute('width', size);
         tempSvgElement.setAttribute('height', size);
 
         // 确保preserveAspectRatio
-        tempSvgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        if (!tempSvgElement.getAttribute('preserveAspectRatio')) {
+          tempSvgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        }
         
         // 重要：不要为根SVG设置fill属性，避免覆盖内部元素的颜色
         // 移除可能存在的fill属性，让内部元素的颜色正确显示
@@ -2720,6 +2682,32 @@ function copyImageToClipboard(size = null) {
         svgCode = tempSvgElement.outerHTML;
       }
 
+      // 解析viewBox获取原始宽高比（与下载PNG保持一致）
+      let viewBoxMatch = svgCode.match(/viewBox=["']([^"']+)["']/);
+      let originalWidth = 1024, originalHeight = 1024;
+      
+      if (viewBoxMatch) {
+        const viewBoxValues = viewBoxMatch[1].split(/\s+/);
+        if (viewBoxValues.length >= 4) {
+          originalWidth = parseFloat(viewBoxValues[2]) - parseFloat(viewBoxValues[0]);
+          originalHeight = parseFloat(viewBoxValues[3]) - parseFloat(viewBoxValues[1]);
+        }
+      }
+      
+      // 计算保持宽高比的实际尺寸
+      const aspectRatio = originalWidth / originalHeight;
+      let canvasWidth, canvasHeight;
+      
+      if (aspectRatio > 1) {
+        // 宽度较大，以宽度为准
+        canvasWidth = size;
+        canvasHeight = Math.round(size / aspectRatio);
+      } else {
+        // 高度较大或正方形，以高度为准
+        canvasHeight = size;
+        canvasWidth = Math.round(size * aspectRatio);
+      }
+
       console.log('copyImageToClipboard: 已处理SVG并应用与预览一致的颜色设置');
 
       // 创建临时canvas
@@ -2727,6 +2715,9 @@ function copyImageToClipboard(size = null) {
       const ctx = canvas.getContext('2d');
       canvas.width = size;
       canvas.height = size;
+
+      // 清除画布，确保透明背景（与下载PNG保持一致）
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 创建SVG数据URL - 使用更安全的编码方式
       const svgBlob = new Blob([svgCode], { type: 'image/svg+xml;charset=utf-8' });
@@ -2738,11 +2729,12 @@ function copyImageToClipboard(size = null) {
 
       img.onload = function () {
         try {
-          // 设置透明背景
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // 计算居中绘制的位置
+          const xPos = Math.floor((canvas.width - canvasWidth) / 2);
+          const yPos = Math.floor((canvas.height - canvasHeight) / 2);
 
-          // 绘制图像 - 保持宽高比
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // 绘制图像 - 保持宽高比并居中
+          ctx.drawImage(img, xPos, yPos, canvasWidth, canvasHeight);
 
           // 清理临时URL
           URL.revokeObjectURL(svgDataUrl);
@@ -2787,8 +2779,10 @@ function copyImageToClipboard(size = null) {
               console.error('Canvas转换为blob失败');
               // 创建简单的后备图像
               try {
-                ctx.fillStyle = color === '#ffffff' ? '#000000' : color;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // 使用图标当前颜色或默认蓝色
+            const iconColor = iconColors.get(currentIcon.id) || '#409eff';
+            ctx.fillStyle = iconColor === '#ffffff' ? '#000000' : iconColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 canvas.toBlob((fallbackBlob) => {
                   if (fallbackBlob) {
@@ -2823,7 +2817,9 @@ function copyImageToClipboard(size = null) {
 
         // 添加错误时的后备方案：创建一个带有颜色的简单矩形
         try {
-          ctx.fillStyle = color === '#ffffff' ? '#000000' : color;
+          // 使用图标当前颜色或默认蓝色
+          const iconColor = iconColors.get(currentIcon.id) || '#409eff';
+          ctx.fillStyle = iconColor === '#ffffff' ? '#000000' : iconColor;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
           canvas.toBlob((blob) => {
