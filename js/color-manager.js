@@ -195,14 +195,14 @@ window.ColorManager = {
           // 检查原始填充状态，只在需要时设置填充颜色
           const originalFill = element.getAttribute('fill');
           if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
-            element.setAttribute('fill', pathColor === '#ffffff' ? '#000000' : pathColor);
+            element.setAttribute('fill', pathColor); // 允许设置真正的白色
           }
 
           // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
           // 不添加额外的stroke属性
           const originalStroke = element.getAttribute('stroke');
           if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
-            element.setAttribute('stroke', pathColor === '#ffffff' ? '#000000' : pathColor);
+            element.setAttribute('stroke', pathColor); // 允许设置真正的白色
           }
         }
       });
@@ -212,14 +212,14 @@ window.ColorManager = {
         // 只对原本有填充颜色的元素设置新的填充颜色
         const originalFill = element.getAttribute('fill');
         if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
-          element.setAttribute('fill', iconColor === '#ffffff' ? '#000000' : iconColor);
+          element.setAttribute('fill', iconColor); // 允许设置真正的白色
         }
 
         // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
         // 不添加额外的stroke属性
         const originalStroke = element.getAttribute('stroke');
         if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
-          element.setAttribute('stroke', iconColor === '#ffffff' ? '#000000' : iconColor);
+          element.setAttribute('stroke', iconColor); // 允许设置真正的白色
         }
       });
     }
@@ -246,26 +246,26 @@ window.ColorManager = {
         // 检查原始填充状态，只在需要时设置填充颜色
         const originalFill = element.getAttribute('fill');
         if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
-          element.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+          element.setAttribute('fill', color); // 允许设置真正的白色
         }
 
         // 严格确保：只有当元素原本就有stroke属性且值不为none时，才修改stroke颜色
         // 不添加额外的stroke属性
         const originalStroke = element.getAttribute('stroke');
         if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
-          element.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+          element.setAttribute('stroke', color); // 允许设置真正的白色
         }
       } else {
         // 更新所有路径颜色
         elements.forEach(element => {
           const originalFill = element.getAttribute('fill');
           if (originalFill && originalFill !== 'none' && originalFill !== 'transparent') {
-            element.setAttribute('fill', color === '#ffffff' ? '#000000' : color);
+            element.setAttribute('fill', color); // 允许设置真正的白色
           }
 
           const originalStroke = element.getAttribute('stroke');
           if (originalStroke && originalStroke !== 'none' && originalStroke !== 'transparent') {
-            element.setAttribute('stroke', color === '#ffffff' ? '#000000' : color);
+            element.setAttribute('stroke', color); // 允许设置真正的白色
           }
         });
       }

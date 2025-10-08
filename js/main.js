@@ -157,6 +157,12 @@ document.addEventListener('DOMContentLoaded', () => {
       hasMoreItems = true;
       loadIcons(1, true);
     }
+
+    // 初始化图标详情预览区域的缩放和拖拽功能
+    initIconPreviewZoom();
+
+    // 初始化背景颜色切换功能
+    initBackgroundColorChanger();
   }, 500);
 
   // 监听窗口大小变化，重新计算显示数量
@@ -292,20 +298,98 @@ function initializeEventListeners() {
     downloadForm.addEventListener('change', saveDownloadSettings);
   }
 
+  // 自定义尺寸功能初始化
+  const customSizeInput = document.getElementById('customSizeInput');
+  const customSizeDisplay = document.getElementById('customSizeDisplay');
+  const applyCustomSizeBtn = document.getElementById('applyCustomSizeBtn');
+
+  // 实时更新自定义尺寸显示
+  if (customSizeInput && customSizeDisplay) {
+    customSizeInput.addEventListener('input', () => {
+      const size = customSizeInput.value.trim();
+      customSizeDisplay.textContent = size || '?';
+    });
+  }
+
+  // 应用自定义尺寸按钮点击事件
+  if (applyCustomSizeBtn) {
+    applyCustomSizeBtn.addEventListener('click', () => {
+      applyCustomSize();
+    });
+
+    // 按下Enter键也可以应用自定义尺寸
+    customSizeInput.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        applyCustomSize();
+      }
+    });
+  }
+
+  // 应用自定义尺寸的函数
+  function applyCustomSize() {
+    const size = parseInt(customSizeInput.value.trim());
+    if (isNaN(size) || size < 1 || size > 2048) {
+      showToast('请输入1-2048之间的有效数字', false);
+      return;
+    }
+
+    // 检查是否已经有这个尺寸的选项
+    let customOption = document.querySelector(`.size-option[data-size="${size}"]`);
+
+    // 如果没有这个尺寸的选项，创建一个新的选项
+    if (!customOption) {
+      const sizeOptions = document.getElementById('sizeOptions');
+      customOption = document.createElement('div');
+      customOption.className = 'size-option px-3 py-1.5 border border-primary bg-primary/10 text-primary rounded-md cursor-pointer text-sm';
+      customOption.dataset.size = size;
+      customOption.textContent = `${size}x${size}`;
+
+      // 插入到自定义尺寸输入框前面
+      const customContainer = document.querySelector('.custom-size-container');
+      sizeOptions.insertBefore(customOption, customContainer);
+    }
+
+    // 取消选中其他所有选项
+    document.querySelectorAll('.size-option').forEach(option => {
+      option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+      option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+    });
+
+    // 选中自定义尺寸选项
+    customOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+    customOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+
+    // 更新预览尺寸并显示提示
+    selectedSize = size;
+    updateIconPreviewSize(selectedSize);
+    showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
+  }
+
   // 尺寸选择器事件 - 支持多选
   if (sizeOptions) {
     sizeOptions.addEventListener('click', (e) => {
+      // 忽略自定义尺寸输入框区域的点击
+      if (e.target.closest('.custom-size-container')) {
+        return;
+      }
+
       const sizeOption = e.target.closest('.size-option');
       if (sizeOption) {
         // 切换选中状态（多选模式）
-        if (sizeOption.classList.contains('size-option-selected')) {
-          sizeOption.classList.remove('size-option-selected');
+        if (sizeOption.classList.contains('border-primary')) {
+          // 移除选中状态的Tailwind类
+          sizeOption.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+          // 添加默认状态的Tailwind类
+          sizeOption.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
         } else {
-          sizeOption.classList.add('size-option-selected');
+          // 添加选中状态的Tailwind类
+          sizeOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+          // 移除默认状态的Tailwind类
+          sizeOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
         }
 
         // 获取所有选中的尺寸
-        const selectedSizes = Array.from(document.querySelectorAll('.size-option-selected'))
+        const selectedSizes = Array.from(document.querySelectorAll('.size-option.border-primary'))
           .map(option => parseInt(option.dataset.size));
 
         if (selectedSizes.length > 0) {
@@ -323,7 +407,10 @@ function initializeEventListeners() {
           // 如果没有选中任何尺寸，默认选中64x64
           const defaultOption = document.querySelector('.size-option[data-size="64"]');
           if (defaultOption) {
-            defaultOption.classList.add('size-option-selected');
+            // 添加选中状态的Tailwind类
+            defaultOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+            // 移除默认状态的Tailwind类
+            defaultOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
             selectedSize = 64;
             updateIconPreviewSize(selectedSize);
           }
@@ -492,7 +579,7 @@ function initializeEventListeners() {
 
   // 获取选中的尺寸数组
   function getSelectedSizes() {
-    return Array.from(document.querySelectorAll('.size-option-selected'))
+    return Array.from(document.querySelectorAll('.size-option.border-primary'))
       .map(option => parseInt(option.dataset.size))
       .sort((a, b) => b - a); // 按从大到小排序
   }
@@ -1303,6 +1390,7 @@ function debounce(func, wait) {
 
 function createIconItem(icon) {
   const container = document.createElement('div');
+  // 确保保留icon-display-container类供JavaScript使用，同时添加Tailwind样式类
   container.className = 'icon-display-container cursor-pointer p-4 border rounded-lg transition-all relative bg-white';
   container.dataset.iconId = icon.id;
 
@@ -1593,15 +1681,28 @@ function openIconDetail(icon) {
 
   updateSVGCodeDisplay();
 
+  // 根据路径数量控制帮助文本的显示
+  const pathSelectionHelp = document.getElementById('pathSelectionHelp');
+  const modalSvgElement = modalIconPreview.querySelector('svg');
+  if (pathSelectionHelp && modalSvgElement) {
+    const pathCount = modalSvgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse').length;
+    // 只有当图标有多个路径时才显示帮助文本
+    if (pathCount > 1) {
+      pathSelectionHelp.classList.remove('hidden');
+    } else {
+      pathSelectionHelp.classList.add('hidden');
+    }
+  }
+
   // 显示模态框
   iconModal.classList.remove('opacity-0', 'pointer-events-none');
-  setTimeout(() => {
-    const modalContent = iconModal.querySelector('.modal-content');
-    if (modalContent) {
-      modalContent.classList.remove('scale-95');
-      modalContent.classList.add('scale-100');
-    }
-  }, 10);
+
+  // 添加动画效果
+  const modalContent = iconModal.querySelector('div:not(.modal-nav-buttons)');
+  if (modalContent) {
+    modalContent.classList.remove('scale-95');
+    modalContent.classList.add('scale-100');
+  }
 }
 
 function updateSVGCodeDisplay() {
@@ -1777,6 +1878,56 @@ function handlePathClick(event, index) {
   }
 }
 
+// 获取SVG元素的实际计算颜色
+function getComputedElementColor(element) {
+  if (!element) return null;
+
+  // 首先检查直接设置的填充颜色
+  const fill = element.getAttribute('fill');
+  if (fill && fill !== 'none' && fill !== 'transparent') {
+    return fill;
+  }
+
+  // 然后检查直接设置的描边颜色
+  const stroke = element.getAttribute('stroke');
+  if (stroke && stroke !== 'none' && stroke !== 'transparent') {
+    return stroke;
+  }
+
+  // 使用getComputedStyle获取计算后的颜色（考虑继承）
+  const computedStyle = window.getComputedStyle(element);
+  let computedColor = computedStyle.getPropertyValue('fill');
+
+  // 如果计算后的填充颜色无效，尝试描边颜色
+  if (!computedColor || computedColor === 'none' || computedColor === 'transparent') {
+    computedColor = computedStyle.getPropertyValue('stroke');
+  }
+
+  // 转换颜色格式为十六进制（如果需要）
+  return computedColor;
+}
+
+// 规范化颜色格式，将rgb/rgba转换为十六进制
+function normalizeColor(color) {
+  if (!color || color === 'none' || color === 'transparent') return null;
+
+  // 如果已经是十六进制格式，直接返回
+  if (color.startsWith('#')) {
+    return color.toLowerCase();
+  }
+
+  // 处理rgb/rgba格式
+  const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1]);
+    const g = parseInt(rgbMatch[2]);
+    const b = parseInt(rgbMatch[3]);
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`.toLowerCase();
+  }
+
+  return color.toLowerCase();
+}
+
 // 显示路径颜色选择器弹窗
 function showPathColorPicker(event, pathIndices) {
   // 确保pathIndices是数组
@@ -1793,64 +1944,157 @@ function showPathColorPicker(event, pathIndices) {
     existingPicker.remove();
   }
 
-  // 创建颜色选择器弹窗
-  const popup = document.createElement('div');
-  // 使用Tailwind CSS设置圆角和样式，与其他弹窗保持一致
-  popup.className = 'path-color-picker-popup fixed z-50 bg-white border border-gray-300 rounded-xl shadow-lg p-4 min-w-[200px]';
+  // 从HTML模板创建颜色选择器弹窗
+  const template = document.getElementById('pathColorPickerTemplate');
+  const popup = document.importNode(template.content, true).querySelector('.path-color-picker-popup');
+
+  // 设置弹窗位置
   popup.style.left = event.pageX + 'px';
   popup.style.top = event.pageY + 'px';
 
   // 获取当前颜色（使用第一个路径的颜色作为默认值）
   const firstPathIndex = pathIndexArray[0];
-  const currentPathColor = pathColors.get(currentIcon.id)?.get(firstPathIndex) || currentIconColor;
+
+  // 尝试获取元素的实际颜色
+  let currentPathColor = pathColors.get(currentIcon.id)?.get(firstPathIndex) || currentIconColor;
+
+  // 尝试获取SVG元素的实际计算颜色
+  const svgElement = modalIconPreview.querySelector('.icon-svg-element') || modalIconPreview.querySelector('svg');
+  if (svgElement) {
+    const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+    if (elements[firstPathIndex]) {
+      const actualColor = getComputedElementColor(elements[firstPathIndex]);
+      if (actualColor) {
+        const normalizedColor = normalizeColor(actualColor);
+        if (normalizedColor) {
+          currentPathColor = normalizedColor;
+        }
+      }
+    }
+  }
 
   // 生成路径标签文本
   const pathLabels = pathIndexArray.length > 1
     ? `路径 ${pathIndexArray.map(idx => idx + 1).join(', ')} 颜色`
     : `路径 ${firstPathIndex + 1} 颜色`;
 
-  popup.innerHTML = `
-    <div class="mb-2">
-      <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between cursor-move bg-gray-100 px-3 py-2 border-b border-gray-200 rounded-t-xl -mx-4 -mt-4 mb-4">
-        ${pathLabels}
-        <div class="drag-handle flex items-center justify-center p-1 select-none">
-          <i class="fa fa-grip-vertical text-gray-500"></i>
-        </div>
-      </label>
-      <input type="color" class="path-color-input w-full h-8 rounded border cursor-pointer" value="${currentPathColor}">
-    </div>
-    <div class="flex gap-1 flex-wrap mb-3">
-      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #409eff;" data-color="#409eff"></div>
-      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #303133;" data-color="#303133"></div>
-      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #f56c6c;" data-color="#f56c6c"></div>
-      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #67c23a;" data-color="#67c23a"></div>
-      <div class="color-option w-6 h-6 rounded cursor-pointer border border-gray-300" style="background-color: #e6a23c;" data-color="#e6a23c"></div>
-    </div>
-    <div class="flex gap-2">
-      <button class="apply-color-btn px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">应用</button>
-      <button class="cancel-color-btn px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400">取消</button>
-    </div>
-  `;
+  // 设置弹窗内容
+  popup.querySelector('.path-label').textContent = pathLabels;
+  popup.querySelector('.path-color-input').value = currentPathColor;
 
+  // 添加到文档
   document.body.appendChild(popup);
 
   // 绑定事件
   const colorInput = popup.querySelector('.path-color-input');
-  const colorOptions = popup.querySelectorAll('.color-option');
+  const presetColorsContainer = popup.querySelector('#presetColorsContainer');
   const applyBtn = popup.querySelector('.apply-color-btn');
   const cancelBtn = popup.querySelector('.cancel-color-btn');
 
-  // 颜色选项点击事件
-  colorOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      const color = option.dataset.color;
-      colorInput.value = color;
-      // 实时预览颜色变化 - 应用到所有选中路径
-      pathIndexArray.forEach(index => {
-        updateSelectedPathColor(color, index);
-      });
+  // 定义预设颜色数组
+  const presetColors = [
+    { color: '#0078ff', name: '蓝色' },
+    { color: '#303133', name: '深灰色' },
+    { color: '#f56c6c', name: '红色' },
+    { color: '#67c23a', name: '绿色' },
+    { color: '#e6a23c', name: '橙色' },
+    { color: '#ffffff', name: '白色' }
+
+  ];
+
+  // 动态生成预设颜色选项
+  function generatePresetColors() {
+    // 清空容器
+    presetColorsContainer.innerHTML = '';
+
+    // 为每个预设颜色创建DOM元素
+    presetColors.forEach(preset => {
+      const colorOption = document.createElement('div');
+      colorOption.className = 'color-option w-6 h-6 rounded cursor-pointer border border-gray-300 relative';
+      colorOption.style.backgroundColor = preset.color;
+      colorOption.dataset.color = preset.color;
+      colorOption.setAttribute('title', preset.name); // 添加颜色名称作为提示
+
+      // 创建对号图标 - 根据背景颜色决定图标颜色
+      const checkIcon = document.createElement('i');
+      const isLightColor = preset.color === '#ffffff';
+      const iconColorClass = isLightColor ? 'text-black' : 'text-white';
+      checkIcon.className = `fa fa-check color-selected-icon absolute inset-0 flex items-center justify-center ${iconColorClass} opacity-0 transition-opacity duration-200`;
+
+      // 将图标添加到颜色选项
+      colorOption.appendChild(checkIcon);
+
+      // 将颜色选项添加到容器
+      presetColorsContainer.appendChild(colorOption);
+
+      // 绑定点击事件
+      colorOption.addEventListener('click', () => handleColorOptionClick(colorOption, preset.color));
     });
-  });
+
+    // 返回所有颜色选项元素
+    return popup.querySelectorAll('.color-option');
+  }
+
+  // 处理颜色选项点击
+  function handleColorOptionClick(option, color) {
+    colorInput.value = color;
+    updateColorSelection(option);
+
+    // 实时预览颜色变化 - 应用到所有选中路径
+    pathIndexArray.forEach(index => {
+      updateSelectedPathColor(color, index);
+    });
+  }
+
+  // 更新颜色选择状态
+  function updateColorSelection(option) {
+    // 首先移除所有选项的选中状态
+    const allOptions = popup.querySelectorAll('.color-option');
+    allOptions.forEach(opt => {
+      const icon = opt.querySelector('.color-selected-icon');
+      if (icon) {
+        icon.classList.add('opacity-0');
+      }
+    });
+
+    // 如果提供了选项，则设置为选中状态
+    if (option) {
+      const icon = option.querySelector('.color-selected-icon');
+      if (icon) {
+        icon.classList.remove('opacity-0');
+      }
+    }
+  }
+
+  // 初始化预设颜色
+  const colorOptions = generatePresetColors();
+
+  // 初始化颜色选项选中状态 - 只有当当前颜色存在于预设颜色中时才选中
+  function initializeColorSelection() {
+    // 首先确保所有选项都不选中
+    updateColorSelection(null);
+
+    // 规范化当前路径颜色用于比较
+    const normalizedCurrentColor = normalizeColor(currentPathColor);
+
+    // 查找匹配的预设颜色
+    const matchingColor = presetColors.find(preset => normalizeColor(preset.color) === normalizedCurrentColor);
+
+    if (matchingColor) {
+      // 找到匹配的预设颜色选项
+      const matchingOption = Array.from(colorOptions).find(option =>
+        normalizeColor(option.dataset.color) === normalizedCurrentColor
+      );
+
+      if (matchingOption) {
+        updateColorSelection(matchingOption);
+      }
+    }
+    // 如果不匹配任何预设颜色，保持所有选项不选中
+  }
+
+  // 初始化颜色选中状态
+  initializeColorSelection();
 
   // 点击弹窗外部时清除选中状态
   function handleOutsideClick(e) {
@@ -1878,6 +2122,17 @@ function showPathColorPicker(event, pathIndices) {
   // 颜色输入框实时变化事件
   colorInput.addEventListener('input', (e) => {
     const color = e.target.value;
+    const normalizedColor = normalizeColor(color);
+
+    // 检查是否有预设颜色选项匹配当前输入的颜色（使用规范化的颜色进行比较）
+    const matchingOption = Array.from(colorOptions).find(option =>
+      normalizeColor(option.dataset.color) === normalizedColor
+    );
+
+    // 根据是否找到匹配的预设颜色来更新选中状态
+    // 如果找不到匹配项，则不选中任何预设颜色
+    updateColorSelection(matchingOption);
+
     // 实时预览颜色变化 - 应用到所有选中路径
     pathIndexArray.forEach(index => {
       updateSelectedPathColor(color, index);
@@ -1891,7 +2146,7 @@ function showPathColorPicker(event, pathIndices) {
       const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
       if (elements[pathIndex]) {
         const element = elements[pathIndex];
-        const finalColor = color === '#ffffff' ? '#000000' : color;
+        const finalColor = color; // 移除白色到黑色的转换，允许设置真正的白色
 
         // 检查元素的原始状态
         const originalFill = element.getAttribute('fill');
@@ -1972,7 +2227,7 @@ function showPathColorPicker(event, pathIndices) {
 }
 
 /**
- * 使颜色选择器弹窗可拖拽
+ * 使颜色选择器弹窗可拖拽（支持鼠标和触摸事件）
  * @param {HTMLElement} popup - 颜色选择器弹窗元素
  */
 function makeColorPickerDraggable(popup) {
@@ -1999,15 +2254,15 @@ function makeColorPickerDraggable(popup) {
     }
   }
 
-  // 添加拖动区域（标题和整个弹窗都可以拖动）
-  popup.addEventListener('mousedown', function (e) {
+  // 开始拖拽的通用函数
+  function startDragging(clientX, clientY, target) {
     // 确保点击的是弹窗本身、标题或拖拽图标
-    if (e.target === popup || e.target === titleElement ||
-      e.target.classList.contains('drag-handle') || e.target.closest('.drag-handle')) {
+    if (target === popup || target === titleElement ||
+      target.classList.contains('drag-handle') || target.closest('.drag-handle')) {
       isDragging = true;
       const rect = popup.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
+      offsetX = clientX - rect.left;
+      offsetY = clientY - rect.top;
 
       // 提升z-index以避免拖拽时被遮挡
       popup.style.zIndex = '1001';
@@ -2016,15 +2271,15 @@ function makeColorPickerDraggable(popup) {
       popup.style.cursor = 'grabbing';
       if (titleElement) titleElement.style.cursor = 'grabbing';
     }
-  });
+  }
 
-  // 监听鼠标移动
-  document.addEventListener('mousemove', function (e) {
+  // 移动弹窗的通用函数
+  function movePopup(clientX, clientY) {
     if (!isDragging) return;
 
     // 计算新位置
-    let newX = e.clientX - offsetX;
-    let newY = e.clientY - offsetY;
+    let newX = clientX - offsetX;
+    let newY = clientY - offsetY;
 
     // 确保弹窗不会移出视口
     const maxX = window.innerWidth - popup.offsetWidth;
@@ -2039,10 +2294,10 @@ function makeColorPickerDraggable(popup) {
     // 确保移动时保持拖拽样式
     popup.style.cursor = 'grabbing';
     if (titleElement) titleElement.style.cursor = 'grabbing';
-  });
+  }
 
-  // 监听鼠标释放
-  document.addEventListener('mouseup', function () {
+  // 结束拖拽的通用函数
+  function endDragging() {
     if (isDragging) {
       isDragging = false;
       // 恢复样式
@@ -2057,16 +2312,69 @@ function makeColorPickerDraggable(popup) {
       // 恢复z-index
       popup.style.zIndex = '50';
     }
+  }
+
+  // ===== 鼠标事件支持 =====
+  // 添加拖动区域（标题和整个弹窗都可以拖动）
+  popup.addEventListener('mousedown', function (e) {
+    startDragging(e.clientX, e.clientY, e.target);
   });
+
+  // 监听鼠标移动
+  document.addEventListener('mousemove', function (e) {
+    movePopup(e.clientX, e.clientY);
+  });
+
+  // 监听鼠标释放
+  document.addEventListener('mouseup', endDragging);
+
+  // ===== 触摸事件支持（手机端）=====
+  // 触摸开始事件
+  popup.addEventListener('touchstart', function (e) {
+    // 只处理单指触摸
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      startDragging(touch.clientX, touch.clientY, e.target);
+      // 阻止默认行为，防止页面滚动
+      e.preventDefault();
+    }
+  }, { passive: false }); // passive: false 允许在touchstart中使用preventDefault
+
+  // 触摸移动事件
+  document.addEventListener('touchmove', function (e) {
+    // 只处理单指触摸
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      movePopup(touch.clientX, touch.clientY);
+      // 如果正在拖拽，阻止默认行为
+      if (isDragging) {
+        e.preventDefault();
+      }
+    }
+  }, { passive: false }); // passive: false 允许在touchmove中使用preventDefault
+
+  // 触摸结束事件
+  document.addEventListener('touchend', endDragging);
+
+  // 触摸取消事件（当触摸被中断时，如电话打入）
+  document.addEventListener('touchcancel', endDragging);
 
   // 防止拖拽过程中触发文本选择
   popup.addEventListener('selectstart', function (e) {
     e.preventDefault();
-  });  // 防止在弹窗内的输入框或按钮点击时触发拖拽
+  });
+
+  // 防止在弹窗内的输入框或按钮点击时触发拖拽
   const interactiveElements = popup.querySelectorAll('input, button');
   interactiveElements.forEach(element => {
+    // 鼠标事件
     element.addEventListener('mousedown', function (e) {
       e.stopPropagation(); // 阻止冒泡，防止触发弹窗的mousedown事件
+    });
+
+    // 触摸事件
+    element.addEventListener('touchstart', function (e) {
+      e.stopPropagation(); // 阻止冒泡，防止触发弹窗的touchstart事件
     });
   });
 }
@@ -2100,14 +2408,38 @@ function setPathSelectedState(element, index) {
         const diagonal = Math.sqrt(width * width + height * height);
 
         // 根据对角线长度计算相对描边宽度和虚线间隔
-        // 对于viewBox="0 0 50 50"，使用更细的描边宽度和更小的虚线间隔
-        // 更大的viewBox按比例调整，但保持整体更细、更密集的效果
         const referenceDiagonal = 50 * Math.sqrt(2); // 50x50 viewBox的对角线
-        // 使用0.5作为基础描边宽度，更小的系数使描边更细
+        // 使用0.5作为基础描边宽度
         strokeWidth = `${0.5 * (diagonal / referenceDiagonal)}px`;
-        // 使用1.5作为基础虚线间隔，更小的系数使间隔更密集
+        // 使用1.5作为基础虚线间隔
         strokeDasharray = Math.max(1.5, Math.round(1.5 * (diagonal / referenceDiagonal))).toString();
-        console.log(`setPathSelectedState: viewBox=${viewBox}, 计算的描边宽度=${strokeWidth}, 虚线间隔=${strokeDasharray}`);
+        
+        // 获取当前图标预览的缩放比例（如果存在）
+        let currentScale = 1;
+        // 尝试从modalIconPreview元素获取当前缩放比例
+        if (typeof window.currentIconScale !== 'undefined') {
+          currentScale = window.currentIconScale;
+        } else if (typeof initIconPreviewZoom !== 'undefined') {
+          // 尝试查找预览容器并获取transform样式
+          const previewContainer = document.getElementById('modalIconPreview');
+          if (previewContainer && previewContainer.style.transform) {
+            const transformMatch = previewContainer.style.transform.match(/scale\(([^)]+)\)/);
+            if (transformMatch && transformMatch[1]) {
+              currentScale = parseFloat(transformMatch[1]) || 1;
+            }
+          }
+        }
+        
+        // 根据当前缩放比例调整描边宽度和虚线间隔
+        // 当缩小时，需要增加描边宽度和虚线间隔以保持可见性
+        // 当放大时，需要减小描边宽度和虚线间隔以避免过于粗重
+        const adjustedStrokeWidth = parseFloat(strokeWidth) / currentScale;
+        const adjustedDasharray = parseFloat(strokeDasharray) / currentScale;
+        
+        strokeWidth = `${Math.max(0.2, adjustedStrokeWidth)}px`; // 最小不小于0.2px
+        strokeDasharray = Math.max(0.5, Math.round(adjustedDasharray * 10) / 10).toString(); // 最小不小于0.5
+        
+        console.log(`setPathSelectedState: viewBox=${viewBox}, 当前缩放比例=${currentScale}, 计算的描边宽度=${strokeWidth}, 虚线间隔=${strokeDasharray}`);
       }
     }
   }
@@ -2222,7 +2554,7 @@ function updateIconColor(color, isReset = false) {
             finalColor = pathColors.get(currentIcon.id)?.get(index) || currentIconColor;
           } else {
             // 否则使用传入的新颜色
-            finalColor = color === '#ffffff' ? '#000000' : color;
+            finalColor = color; // 允许设置真正的白色
           }
 
           console.log(`updateIconColor: 修改选中路径 ${index}，原颜色: ${element.getAttribute('fill')}，新颜色: ${finalColor}`);
@@ -2262,7 +2594,7 @@ function updateIconColor(color, isReset = false) {
         finalColor = pathColors.get(currentIcon.id)?.get(selectedPathIndex) || currentIconColor;
       } else {
         // 否则使用传入的新颜色
-        finalColor = color === '#ffffff' ? '#000000' : color;
+        finalColor = color; // 允许设置真正的白色
       }
 
       console.log(`updateIconColor: 修改单个路径 ${selectedPathIndex}，原颜色: ${element.getAttribute('fill')}，新颜色: ${finalColor}`);
@@ -2295,7 +2627,7 @@ function updateIconColor(color, isReset = false) {
       // 修改所有元素
       console.log(`updateIconColor: 修改所有元素颜色为 ${color}`);
       elements.forEach((el, index) => {
-        const finalColor = color === '#ffffff' ? '#000000' : color;
+        const finalColor = color; // 允许设置真正的白色
         const originalFill = el.getAttribute('fill');
 
         // 检查元素原本是否有填充颜色
@@ -2394,7 +2726,7 @@ function updateIconColor(color, isReset = false) {
           if (selectedPathIndex >= 0 && homeElements[selectedPathIndex]) {
             // 修改单个路径
             const element = homeElements[selectedPathIndex];
-            const finalColor = color === '#ffffff' ? '#000000' : color;
+            const finalColor = color; // 允许设置真正的白色
             element.setAttribute('fill', finalColor);
             // 只有当元素原本有stroke属性时才设置stroke，避免不必要的描边
             if (element.hasAttribute('stroke') && element.getAttribute('stroke') !== 'none') {
@@ -2403,7 +2735,7 @@ function updateIconColor(color, isReset = false) {
           } else {
             // 修改所有元素
             homeElements.forEach(el => {
-              const finalColor = color === '#ffffff' ? '#000000' : color;
+              const finalColor = color; // 允许设置真正的白色
               el.setAttribute('fill', finalColor);
               // 只有当元素原本有stroke属性时才设置stroke，避免不必要的描边
               if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
@@ -2632,12 +2964,17 @@ function navigateToNextIcon() {
 
 function closeIconModal() {
   if (iconModal) {
-    iconModal.classList.add('opacity-0', 'pointer-events-none');
-    const modalContent = iconModal.querySelector('.modal-content');
+    // 添加动画效果
+    const modalContent = iconModal.querySelector('div:not(.modal-nav-buttons)');
     if (modalContent) {
-      modalContent.classList.add('scale-95');
       modalContent.classList.remove('scale-100');
+      modalContent.classList.add('scale-95');
     }
+
+    // 延迟隐藏模态框，等待动画完成
+    setTimeout(() => {
+      iconModal.classList.add('opacity-0', 'pointer-events-none');
+    }, 200);
 
     // 重置图标预览区域的缩放和位移状态
     if (modalIconPreview) {
@@ -3030,7 +3367,7 @@ function copyImageToClipboard(size = null) {
               try {
                 // 使用图标当前颜色或默认蓝色
                 const iconColor = iconColors.get(currentIcon.id) || '#409eff';
-                ctx.fillStyle = iconColor === '#ffffff' ? '#000000' : iconColor;
+                ctx.fillStyle = iconColor; // 允许设置真正的白色
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 canvas.toBlob((fallbackBlob) => {
@@ -3068,7 +3405,7 @@ function copyImageToClipboard(size = null) {
         try {
           // 使用图标当前颜色或默认蓝色
           const iconColor = iconColors.get(currentIcon.id) || '#409eff';
-          ctx.fillStyle = iconColor === '#ffffff' ? '#000000' : iconColor;
+          ctx.fillStyle = iconColor; // 允许设置真正的白色
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
           canvas.toBlob((blob) => {
@@ -3358,7 +3695,7 @@ function startBatchDownload(icons, settings) {
 
 // 应用单一颜色到SVG
 function applySingleColorToSVG(svgCode, color) {
-  if (!color || color === '#ffffff') return svgCode;
+  if (!color) return svgCode; // 允许设置白色
 
   // 创建临时DOM元素来处理SVG
   const tempDiv = document.createElement('div');
@@ -3431,7 +3768,7 @@ function applyPathColorsToSVG(svgCode, pathColorMap) {
     const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
     elements.forEach((element, index) => {
       const pathColor = pathColorMap.get(index);
-      if (pathColor && pathColor !== '#ffffff') {
+      if (pathColor) { // 允许设置白色
         // 检查元素原本是否有填充颜色
         const originalFill = element.getAttribute('fill');
 
@@ -3724,9 +4061,11 @@ function initIconPreviewZoom() {
     return;
   }
 
-  let currentScale = 1;
+  // 使用window对象存储当前缩放比例，供其他函数访问
+  window.currentIconScale = 1;
+  let currentScale = window.currentIconScale;
   const minScale = 0.5;
-  const maxScale = 3;
+  const maxScale = 5;
   const scaleStep = 0.1;
 
   // 拖拽相关变量
@@ -4027,6 +4366,8 @@ function initIconPreviewZoom() {
       if (!isDragging) {
         updateCursorStyle();
       }
+      // 更新返回中心点按钮的可见性
+      updateResetButtonVisibility();
     }
   }
 
@@ -4034,6 +4375,8 @@ function initIconPreviewZoom() {
     // 只有当缩放值发生变化时才更新
     if (newScale !== currentScale) {
       currentScale = newScale;
+      // 更新全局变量，供setPathSelectedState函数访问
+      window.currentIconScale = currentScale;
 
       // 当缩放到1时，重置位移
       if (currentScale === 1) {
@@ -4054,9 +4397,21 @@ function initIconPreviewZoom() {
       }
 
       console.log(`图标预览缩放: ${Math.round(currentScale * 100)}%`);
+      
+      // 更新返回中心点按钮的可见性
+      updateResetButtonVisibility();
+      
+      // 重新设置所有选中路径的样式，以适应新的缩放比例
+      const selectedPaths = modalIconPreview.querySelectorAll('[selected="true"]');
+      selectedPaths.forEach((path, index) => {
+        setPathSelectedState(path, index);
+      });
     }
   }
 
+  // 获取返回中心点按钮
+  const resetIconPositionBtn = document.getElementById('resetIconPositionBtn');
+  
   // 重置缩放和位移的函数（可选，供其他地方调用）
   window.resetIconPreviewZoom = function () {
     currentScale = 1;
@@ -4064,14 +4419,42 @@ function initIconPreviewZoom() {
     currentY = 0;
     modalIconPreview.style.transform = 'translate(0px, 0px) scale(1)';
     modalIconPreview.style.transition = 'transform 0.2s ease-out';
-    // 更新鼠标样式
+    // 更新鼠标样式和返回按钮可见性
     updateCursorStyle();
     showToast('图标缩放和位置已重置', true);
   };
-
+  
+  // 为返回中心点按钮添加点击事件
+  if (resetIconPositionBtn) {
+    resetIconPositionBtn.addEventListener('click', resetIconPreviewZoom);
+  }
+  
+  // 检查图标是否超出预览区域边界
+  function isIconOutOfBounds() {
+    // 当图标位置不在中心点或缩放比例大于1时认为超出边界
+    return currentX !== 0 || currentY !== 0 || currentScale > 1;
+  }
+  
+  // 更新返回中心点按钮的显示状态
+  function updateResetButtonVisibility() {
+    if (!resetIconPositionBtn) return;
+    
+    const isOutOfBounds = isIconOutOfBounds();
+    
+    if (isOutOfBounds) {
+      resetIconPositionBtn.classList.remove('opacity-0', 'pointer-events-none');
+      resetIconPositionBtn.classList.add('opacity-100');
+    } else {
+      resetIconPositionBtn.classList.add('opacity-0', 'pointer-events-none');
+      resetIconPositionBtn.classList.remove('opacity-100');
+    }
+  }
+  
   // 更新鼠标指针样式的函数
   function updateCursorStyle() {
     modalIconPreview.style.cursor = isIconOverflowingContainer() ? 'grab' : 'default';
+    // 同时更新返回中心点按钮的可见性
+    updateResetButtonVisibility();
   }
 
   // 监听窗口大小变化，更新鼠标指针样式
@@ -4081,6 +4464,126 @@ function initIconPreviewZoom() {
   updateCursorStyle();
 
   console.log('图标预览缩放和拖拽功能已初始化（支持滚轮、触摸缩放和拖拽移动）');
+}
+
+// 背景颜色切换功能
+function initBackgroundColorChanger() {
+  const changeBgBtn = document.getElementById('changeBackgroundColorBtn');
+  const previewContainer = document.querySelector('.detail-preview-container');
+  const modalIconPreview = document.getElementById('modalIconPreview');
+
+  if (!changeBgBtn || !previewContainer) return;
+
+  // 确保detail-preview-container有相对定位，以便按钮的绝对定位生效
+  previewContainer.style.position = 'relative';
+
+  // 定义颜色选项 - 一行四个显示，浅蓝色排第二位
+  const colorOptions = [
+    { name: '透明网格', value: 'grid' },
+    { name: '浅蓝色', value: '#e5f3fd' },
+    { name: '白色', value: '#ffffff' },
+    { name: '超浅灰', value: '#f8f9fa' },
+    { name: '浅灰', value: '#e9ecef' },
+    { name: '中灰', value: '#adb5bd' },
+    { name: '深灰', value: '#6c757d' },
+    { name: '近黑', value: '#343a40' }
+  ];
+
+  // 当前背景类型
+  let currentBgType = 'grid';
+
+  // 创建颜色选择面板
+  let colorPanel = null;
+
+  changeBgBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    // 如果面板已存在，切换显示状态
+    if (colorPanel) {
+      colorPanel.remove();
+      colorPanel = null;
+      return;
+    }
+
+    // 创建颜色选择面板
+    colorPanel = document.createElement('div');
+    colorPanel.className = 'absolute bottom-12 right-3 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 w-auto';
+    colorPanel.innerHTML = `
+      <div class="text-xs text-gray-500 px-2 py-1 font-medium">选择背景颜色</div>
+      <div class="grid grid-cols-4 gap-2 mt-1">
+        ${colorOptions.map(color => `
+          <button 
+            data-color="${color.value}"
+            class="color-option flex items-center justify-center w-10 h-10 rounded-md transition-colors border hover:border-primary ${currentBgType === color.value ? 'ring-2 ring-primary ring-offset-1' : ''}"
+            title="${color.name}"
+          >
+            ${color.value === 'grid' ?
+        '<div class="w-7 h-7 bg-white bg-[linear-gradient(45deg,#eee_25%,transparent_0,transparent_75%,#eee_0),linear-gradient(45deg,#eee_25%,transparent_0,transparent_75%,#eee_0)] bg-[size:10px_10px] bg-[position:0_0,5px_5px] rounded-full"></div>' :
+        `<div class="w-7 h-7 rounded-full" style="background-color: ${color.value}"></div>`
+      }
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    // 添加到previewContainer中（按钮的父容器）
+    previewContainer.appendChild(colorPanel);
+
+    // 为颜色选项添加点击事件
+    colorPanel.querySelectorAll('.color-option').forEach(button => {
+      button.addEventListener('click', () => {
+        const color = button.dataset.color;
+        changePreviewBackground(color);
+
+        // 更新选中状态
+        colorPanel.querySelectorAll('.color-option').forEach(btn => {
+          btn.classList.remove('ring-2', 'ring-primary', 'ring-offset-1');
+        });
+        button.classList.add('ring-2', 'ring-primary', 'ring-offset-1');
+
+        // 关闭面板
+        setTimeout(() => {
+          colorPanel.remove();
+          colorPanel = null;
+        }, 200);
+      });
+    });
+  });
+
+  // 点击其他地方关闭面板
+  document.addEventListener('click', () => {
+    if (colorPanel) {
+      colorPanel.remove();
+      colorPanel = null;
+    }
+  });
+
+  // 阻止点击面板内部时关闭面板
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.color-option') || e.target.closest('#changeBackgroundColorBtn')) {
+      e.stopPropagation();
+    }
+  });
+
+  // 改变预览背景
+  function changePreviewBackground(color) {
+    currentBgType = color;
+
+    if (color === 'grid') {
+      // 恢复默认网格背景
+      previewContainer.style.background = '';
+      previewContainer.style.backgroundColor = '';
+      previewContainer.style.backgroundImage = '';
+      previewContainer.style.backgroundSize = '';
+      previewContainer.style.backgroundPosition = '';
+    } else {
+      // 设置纯色背景
+      previewContainer.style.backgroundColor = color;
+      previewContainer.style.backgroundImage = 'none';
+      previewContainer.style.backgroundSize = '';
+      previewContainer.style.backgroundPosition = '';
+    }
+  }
 }
 
 window.IconLibrary = {

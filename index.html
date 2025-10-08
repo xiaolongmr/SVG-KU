@@ -74,9 +74,9 @@
     <div class="container mx-auto flex flex-wrap justify-between items-center gap-4">
       <!-- Logo和标题 -->
       <div class="flex items-center space-x-2">
-        <div class="logo-container">
-          <i class="fa fa-cube text-primary logo-icon"></i>
-          <div class="logo-glow"></div>
+        <div class="relative inline-flex items-center justify-center">
+          <i class="fa fa-cube text-primary relative z-10 text-2xl"></i>
+          <div class="absolute inset-0 bg-primary/20 rounded-full blur-md"></div>
         </div>
         <h1 class="text-xl font-bold">飞草科技图标库</h1>
       </div>
@@ -135,7 +135,7 @@
         <!-- 批量操作按钮 -->
         <button id="deselectAllBtn"
           class="text-sm bg-white border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 rounded-lg transition-basic flex items-center gap-1 hidden">
-          <i class="fa fa-times"></i>
+          <i class="fa fa-times transition-transform duration-300 hover:rotate-180"></i>
           <span>取消选择</span>
         </button>
         <button id="downloadSelectedBtn"
@@ -159,9 +159,7 @@
     <!-- 多选提示信息 -->
     <div class="bg-blue-50 border-l-4 border-primary p-4 mb-6 rounded-r text-sm">
       <div class="flex items-start">
-        <i class="fa fa-info-circle text-primary mt-0.5 mr-2"></i>
-        <p>按住 <kbd class="px-2 py-0.5 bg-white border rounded text-xs">Ctrl</kbd> 或 <kbd
-            class="px-2 py-0.5 bg-white border rounded text-xs">Cmd</kbd> 键点击图标可进行多选，选好后可批量下载</p>
+        <p>按住 <kbd class="px-2 py-0.5 bg-white border rounded text-xs">Ctrl</kbd> 键点击图标可进行多选，选好后可批量下载</p>
       </div>
     </div>
 
@@ -177,13 +175,13 @@
     </div>
 
     <!-- 加载更多按钮区域 -->
-    <div id="loadMoreContainer" class="loading-more hidden">
+    <div id="loadMoreContainer" class="col-span-full flex justify-center items-center py-6 hidden">
       <div class="loading-state flex flex-col items-center">
         <div class="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
         <p class="text-sm text-gray-500">加载更多图标...</p>
       </div>
       <div class="end-state hidden flex flex-col items-center">
-        <p class="load-more-end">已加载全部图标</p>
+        <p class="text-sm text-gray-400 italic">已加载全部图标</p>
       </div>
       <div class="error-state hidden flex flex-col items-center">
         <p class="text-sm text-red-500 mb-2">加载失败</p>
@@ -199,10 +197,12 @@
   <div id="iconModal"
     class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
     <!-- 左右导航按钮 -->
-    <button id="prevIconBtn" class="absolute left-2 sm:left-4 md:left-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
+    <button id="prevIconBtn"
+      class="absolute left-2 sm:left-4 md:left-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
       <i class="fa fa-angle-left text-xl"></i>
     </button>
-    <button id="nextIconBtn" class="absolute right-2 sm:right-4 md:right-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
+    <button id="nextIconBtn"
+      class="absolute right-2 sm:right-4 md:right-6 text-white bg-black/50 hover:bg-black/70 w-10 h-10 rounded-full flex items-center justify-center transition-basic z-10">
       <i class="fa fa-angle-right text-xl"></i>
     </button>
     <div
@@ -210,8 +210,9 @@
       <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
         <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
-        <button id="closeModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
-          <i class="fa fa-times"></i>
+        <button id="closeModal"
+          class="group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500">
+          <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
         </button>
       </div>
 
@@ -221,10 +222,33 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- 图标预览区域 - 占据左侧一列 -->
           <div class="lg:col-span-1">
-            <div class="detail-preview-container">
-              <div class="detail-icon-wrapper">
-                <div id="modalIconPreview" class="detail-icon-container"></div>
+            <div
+              class="detail-preview-container bg-white border p-4 rounded-lg flex-shrink-0 flex items-center justify-center min-w-[200px] min-h-[280px] overflow-hidden relative bg-[linear-gradient(45deg,#eee_25%,transparent_0,transparent_75%,#eee_0),linear-gradient(45deg,#eee_25%,transparent_0,transparent_75%,#eee_0)] bg-[size:16px_16px] bg-[position:0_0,8px_8px]">
+              <div class="flex-1 flex items-center justify-center rounded-lg p-4 relative">
+                <div id="modalIconPreview" class="flex items-center justify-center"></div>
               </div>
+              <button id="resetIconPositionBtn"
+                class="absolute bottom-2 left-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200 opacity-0 pointer-events-none"
+                title="返回中心点">
+                <i class="fa-solid fa-crosshairs text-[1.5em]"></i>
+              </button>
+              <button id="changeBackgroundColorBtn"
+                class="absolute bottom-2 right-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200"
+                title="修改背景颜色">
+                <!-- <i class="fa-solid fa-palette text-[1.5em] hover:text-primary duration-300"></i> -->
+                <i class="fa-solid fa-game-board text-[1.5em] hover:text-primary"></i>
+              </button>
+            </div>
+            <h3 class="text-black text-sm font-medium mt-3 mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-lightbulb text-amber-500"></i> 操作小Tips
+            </h3>
+            <div class="text-gray-500 text-sm mt-1">
+              <p>• 点击图标的路径可修改颜色</p>
+              <p>• 鼠标放在图标上<b>滚动</b>可调整图标大小</p>
+            </div>
+            <div id="pathSelectionHelp" class="text-gray-500 text-sm">
+              <p>• 按住 <kbd class="px-1 py-0.5 bg-gray-200 border rounded text-xs">Shift</kbd> 多选，按住 <kbd
+                  class="px-1 py-0.5 bg-gray-200 border rounded text-xs">Ctrl</kbd> 减选</p>
             </div>
           </div>
 
@@ -246,10 +270,29 @@
             <div class="mb-5 p-4 bg-neutral-50 rounded-lg">
               <label class="block text-sm font-medium text-gray-700 mb-2">选择尺寸 (适用于 PNG)</label>
               <div class="flex flex-wrap gap-2" id="sizeOptions">
-                <div class="size-option size-option-selected" data-size="64">64x64</div>
-                <div class="size-option" data-size="128">128x128</div>
-                <div class="size-option" data-size="256">256x256</div>
-                <div class="size-option" data-size="512">512x512</div>
+                <div
+                  class="size-option px-3 py-1.5 border border-primary bg-primary/10 text-primary rounded-md cursor-pointer text-sm"
+                  data-size="64">64x64</div>
+                <div
+                  class="size-option px-3 py-1.5 border border-neutral-200 rounded-md cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                  data-size="128">128x128</div>
+                <div
+                  class="size-option px-3 py-1.5 border border-neutral-200 rounded-md cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                  data-size="256">256x256</div>
+                <div
+                  class="size-option px-3 py-1.5 border border-neutral-200 rounded-md cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                  data-size="512">512x512</div>
+                <!-- 自定义尺寸输入框 -->
+                <div class="custom-size-container flex items-center gap-1">
+                  <input type="number" id="customSizeInput" min="1" max="2048" placeholder="自定义"
+                    class="w-18 h-8 px-2 border border-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                  <span class="text-sm text-gray-500">x</span>
+                  <span id="customSizeDisplay" class="text-sm text-gray-500">?</span>
+                  <button id="applyCustomSizeBtn"
+                    class="px-2 py-1 text-sm bg-primary text-white rounded hover:bg-primary/90 transition-basic">
+                    应用
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -298,23 +341,24 @@
             </div>
 
             <!-- 操作按钮区域 -->
-            <div class="flex gap-3 flex-wrap pt-2 border-t border-neutral-100">
+            <div class="flex gap-3 pt-2 border-t border-neutral-100">
               <button id="downloadSvgBtn"
-                class="bg-primary hover:bg-primary/90 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                class="flex-1 bg-primary hover:bg-primary/90 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1 justify-center">
                 <i class="fa fa-download"></i>
                 <span>下载 SVG</span>
               </button>
               <button id="downloadPngBtn"
-                class="bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                class="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1 justify-center">
                 <i class="fa fa-download"></i>
                 <span>下载 PNG</span>
               </button>
-              <button id="copyImageBtn" class="copy-image-btn">
+              <button id="copyImageBtn"
+                class="flex-1 bg-purple-500 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center justify-center gap-1 border-none cursor-pointer">
                 <i class="fa fa-image"></i>
                 <span>复制PNG</span>
               </button>
               <button id="copyDirectBtn"
-                class="bg-black hover:bg-gray-800 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1">
+                class="flex-1 bg-black hover:bg-gray-800 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1 justify-center">
                 <i class="fa fa-copy"></i>
                 <span>复制代码</span>
               </button>
@@ -333,8 +377,9 @@
       <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
         <h3 class="text-lg font-semibold">下载设置</h3>
-        <button id="closeDownloadModal" class="text-neutral-500 hover:text-neutral-800 transition-basic">
-          <i class="fa fa-times"></i>
+        <button id="closeDownloadModal"
+          class="group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500">
+          <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180 active:text-white"></i>
         </button>
       </div>
 
@@ -345,11 +390,13 @@
           <label class="block text-sm font-medium text-gray-700 mb-2">导出格式</label>
           <div class="space-y-2">
             <label class="flex items-center">
-              <input type="checkbox" id="exportSvg" class="size-checkbox">
+              <input type="checkbox" id="exportSvg"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded">
               <span class="ml-2 text-sm text-gray-700">SVG 格式</span>
             </label>
             <label class="flex items-center">
-              <input type="checkbox" id="exportPng" class="size-checkbox" checked="">
+              <input type="checkbox" id="exportPng"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded" checked="">
               <span class="ml-2 text-sm text-gray-700">PNG 格式</span>
             </label>
           </div>
@@ -360,19 +407,23 @@
           <label class="block text-sm font-medium text-gray-700 mb-2">导出尺寸 (适用于 PNG)</label>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             <label class="flex items-center">
-              <input type="checkbox" name="exportSizes" value="64" class="size-checkbox">
+              <input type="checkbox" name="exportSizes" value="64"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded">
               <span class="ml-2 text-sm text-gray-700">64x64</span>
             </label>
             <label class="flex items-center">
-              <input type="checkbox" name="exportSizes" value="128" class="size-checkbox" checked="">
+              <input type="checkbox" name="exportSizes" value="128"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded" checked="">
               <span class="ml-2 text-sm text-gray-700">128x128</span>
             </label>
             <label class="flex items-center">
-              <input type="checkbox" name="exportSizes" value="256" class="size-checkbox">
+              <input type="checkbox" name="exportSizes" value="256"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded">
               <span class="ml-2 text-sm text-gray-700">256x256</span>
             </label>
             <label class="flex items-center">
-              <input type="checkbox" name="exportSizes" value="512" class="size-checkbox" checked="">
+              <input type="checkbox" name="exportSizes" value="512"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded" checked="">
               <span class="ml-2 text-sm text-gray-700">512x512</span>
             </label>
           </div>
@@ -383,15 +434,18 @@
           <label class="block text-sm font-medium text-gray-700 mb-2">打包选项</label>
           <div class="space-y-2">
             <label class="flex items-center">
-              <input type="radio" name="packagingOption" value="by-icon" class="size-checkbox">
+              <input type="radio" name="packagingOption" value="by-icon"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded">
               <span class="ml-2 text-sm text-gray-700">按图标分组（每个图标一个文件夹）</span>
             </label>
             <label class="flex items-center">
-              <input type="radio" name="packagingOption" value="by-format-size" class="size-checkbox" checked="">
+              <input type="radio" name="packagingOption" value="by-format-size"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded" checked="">
               <span class="ml-2 text-sm text-gray-700">按格式和尺寸分组（相同格式和尺寸打包在一起）</span>
             </label>
             <label class="flex items-center">
-              <input type="radio" name="packagingOption" value="single-folder" class="size-checkbox">
+              <input type="radio" name="packagingOption" value="single-folder"
+                class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded">
               <span class="ml-2 text-sm text-gray-700">一个文件夹下载所有</span>
             </label>
           </div>
@@ -400,7 +454,8 @@
         <!-- 颜色设置 -->
         <div class="mb-4">
           <label class="flex items-center">
-            <input type="checkbox" id="useIndividualColors" class="size-checkbox" checked="">
+            <input type="checkbox" id="useIndividualColors"
+              class="w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded" checked="">
             <span class="ml-2 text-sm text-gray-700">使用单独设置的图标颜色</span>
           </label>
         </div>
@@ -409,15 +464,19 @@
         <div id="batchColorContainer" class="mb-5">
           <label class="block text-sm font-medium text-gray-700 mb-2">统一图标颜色 (如不使用单独颜色)</label>
           <div class="flex items-center gap-3">
-            <div class="color-picker">
+            <div
+              class="w-10 h-10 rounded-full cursor-pointer overflow-hidden border-2 border-neutral-200 transition-all hover:border-primary">
               <input type="color" id="batchColorPicker" value="#409eff" class="w-full h-full cursor-pointer">
             </div>
             <div class="flex gap-1 flex-wrap">
-              <div class="color-option" style="background-color: #409eff;" data-color="#409eff"></div>
-              <div class="color-option" style="background-color: #303133;" data-color="#303133"></div>
-              <div class="color-option" style="background-color: #ffffff; border: 1px solid #e4e7ed;"
-                data-color="#ffffff"></div>
-              <div class="color-option" style="background-color: #f56c6c;" data-color="#f56c6c"></div>
+              <div class="w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110"
+                style="background-color: #409eff;" data-color="#409eff"></div>
+              <div class="w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110"
+                style="background-color: #303133;" data-color="#303133"></div>
+              <div class="w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110"
+                style="background-color: #ffffff; border: 1px solid #e4e7ed;" data-color="#ffffff"></div>
+              <div class="w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110"
+                style="background-color: #f56c6c;" data-color="#f56c6c"></div>
             </div>
           </div>
         </div>
@@ -444,6 +503,32 @@
 
   <!-- 隐藏的PNG转换容器 - 用于后台进行PNG转换处理 -->
   <div id="pngConversionContainer" class="hidden absolute top-0 left-0 z-0"></div>
+
+  <!-- 颜色选择器弹窗模板 -->
+  <template id="pathColorPickerTemplate">
+    <div
+      class="path-color-picker-popup fixed z-50 bg-white border border-gray-300 rounded-xl shadow-lg p-4 min-w-[200px]">
+      <div class="mb-2">
+        <label
+          class="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between cursor-move bg-gray-100 px-3 py-2 border-b border-gray-200 rounded-t-xl -mx-4 -mt-4 mb-4">
+          <span class="path-label"></span>
+          <div class="drag-handle flex items-center justify-center p-1 select-none">
+            <i class="fa fa-grip-vertical text-gray-500"></i>
+          </div>
+        </label>
+        <input type="color" class="path-color-input w-full h-8 rounded border cursor-pointer">
+      </div>
+      <!-- 预设颜色容器 - 通过JS动态生成颜色选项 -->
+      <div id="presetColorsContainer" class="flex gap-1 flex-wrap mb-3">
+      </div>
+      <div class="flex gap-2">
+        <button
+          class="apply-color-btn w-full px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">应用</button>
+        <button
+          class="cancel-color-btn w-full px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400">取消</button>
+      </div>
+    </div>
+  </template>
 
   <!-- 本地脚本文件引入 -->
   <script src="js/syntax-highlight.js"></script> <!-- 语法高亮功能 -->

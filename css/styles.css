@@ -36,15 +36,14 @@ body {
   background-color: rgba(64, 158, 255, 0.05);
 }
 
-.icon-svg-wrapper {
+/* .icon-svg-wrapper {
   width: 80px;
   height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* margin-bottom: 12px; */
   overflow: visible;
-}
+} */
 
 .icon-svg-wrapper svg {
   width: 100%;
@@ -546,34 +545,39 @@ header {
   background: rgba(64, 158, 255, 0.05);
 }
 
-.size-option-selected {
-  border-color: #409eff;
-  background: rgba(64, 158, 255, 0.1);
-  color: #409eff;
-  font-weight: 500;
+/* JavaScript依赖的类定义 - 这些类名被JS代码使用，必须保留 */
+
+/* 尺寸选项相关 */
+.size-option {
+  /* 基础样式已在HTML中通过Tailwind类实现 */
+  /* 选中效果现在直接通过JS添加Tailwind工具类实现 */
+  /* 不再使用自定义的选中类，完全通过Tailwind工具类实现选中状态 */
 }
 
-/* 详情页预览容器 */
-.detail-preview-container {
-  /* 模拟ps透明背景网格效果开始 */
-  background-color: #fff;
-  background-image: linear-gradient(45deg, #eee 25%, transparent 0, transparent 75%, #eee 0), linear-gradient(45deg, #eee 25%, transparent 0, transparent 75%, #eee 0);
-  background-size: 16px 16px;
-  background-position: 0 0, 8px 8px;
-  /* 模拟ps透明背景网格效果结束 */
-  padding: 16px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 200px;
-  min-height: 280px;
-  overflow: hidden;
-  /* 确保缩放内容不会超出边界 */
-  position: relative;
-  /* 为绝对定位的子元素提供参考 */
+/* 图标显示容器 - 被JS用来选择和操作图标 */
+.icon-display-container {
+  /* 基础样式已在HTML中通过Tailwind类实现 */
 }
+
+/* 模态框图标预览 - 被JS用来渲染和操作SVG */
+.detail-icon-wrapper,
+.detail-icon-container {
+  /* 基础样式已在HTML中通过Tailwind类实现 */
+}
+
+/* 路径颜色选择器弹出层 - 被JS用来显示和操作路径颜色 */
+.path-color-picker-popup {
+  /* 基础样式已在HTML中通过Tailwind类实现 */
+}
+
+/* 自定义颜色选择器 - 被JS用来创建和操作颜色选择器 */
+.custom-color-picker {
+  /* 基础样式已在HTML中通过Tailwind类实现 */
+}
+
+/* 详情页预览容器 - 基础样式已在HTML中通过Tailwind类实现 */
+/* 仅保留这个空类以避免选择器错误，但样式已在HTML中通过Tailwind实现 */
+.detail-preview-container { }
 
 .detail-icon-container {
   width: 160px;
@@ -610,42 +614,7 @@ header {
   padding: 8px !important;
 }
 
-/* 路径信息显示样式 */
-.path-info {
-  @apply p-3 bg-neutral-50 rounded-lg text-sm;
-}
-
-.path-info span {
-  @apply text-gray-600;
-}
-
-/* 批量颜色选择器样式 */
-.batch-color-container {
-  @apply transition-all duration-200;
-}
-
-.batch-color-container.disabled {
-  @apply opacity-50 pointer-events-none;
-}
-
-/* 图片复制按钮样式 */
-.copy-image-btn {
-  background: #8b5cf6;
-  color: white;
-  font-size: 14px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  cursor: pointer;
-}
-
-.copy-image-btn:hover {
-  background: #7c3aed;
-}
+/* 图片复制按钮样式 - 已直接内嵌到HTML中 */
 
 /* 用于图片转换的临时容器 */
 .temp-conversion-container {
@@ -670,117 +639,28 @@ header {
   /* Chrome, Safari and Opera */
 }
 
-/* 自定义颜色选择器样式 */
-.custom-color-picker {
-  @apply flex items-center gap-2 p-2 bg-white border border-neutral-200 rounded-lg;
-}
+/* 自定义颜色选择器样式 - 已直接内嵌到HTML中 */
 
-.custom-color-picker .color-input {
-  @apply w-8 h-8 rounded border-0 cursor-pointer;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-.custom-color-picker .color-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-}
-
-.custom-color-picker .color-input::-webkit-color-swatch {
-  border: 2px solid #e5e7eb;
-  border-radius: 4px;
-}
-
-.custom-color-picker .color-display {
-  @apply w-6 h-6 rounded border border-neutral-300;
-}
-
-.custom-color-picker .color-text {
-  @apply text-sm font-mono text-neutral-600;
-}
-
-/* 随机路径颜色按钮样式 */
-.random-path-color-btn {
-  @apply px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-pink-600 hover:shadow-lg;
-}
-
-.random-path-color-btn:hover {
-  transform: translateY(-1px);
-}
-
-.random-path-color-btn i {
-  @apply mr-1;
-}
+/* 随机路径颜色按钮样式 - 已直接内嵌到HTML中 */
 
 /* 隐藏类 */
 .hidden {
   display: none !important;
 }
 
-/* 分组标签样式 */
-.group-badge {
-  @apply text-xs px-2 py-0.5 rounded-full absolute top-2 left-2 font-medium;
-}
+/* 分组标签样式 - 已直接内嵌到HTML中 */
 
-.group-linear {
-  @apply bg-blue-100 text-blue-600;
-}
+/* 图标选中状态 - 已直接内嵌到HTML中 */
 
-.group-filled {
-  @apply bg-green-100 text-green-600;
-}
+/* 颜色选择器样式 - 已直接内嵌到HTML中 */
 
-.group-other {
-  @apply bg-gray-100 text-gray-600;
-}
+/* 尺寸选择器样式 - 已直接内嵌到HTML中 */
 
-/* 图标选中状态 */
-.icon-selected {
-  @apply border-primary bg-primary/5 relative;
-}
+/* 复选框样式 - 已直接内嵌到HTML中 */
 
-.selection-badge {
-  @apply absolute top-2 right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center;
-}
-
-/* 颜色选择器样式 */
-.color-picker {
-  @apply w-10 h-10 rounded-full cursor-pointer overflow-hidden border-2 border-neutral-200 transition-all hover:border-primary;
-}
-
-.color-option {
-  @apply w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110;
-}
-
-/* 尺寸选择器样式 */
-.size-option {
-  @apply px-3 py-1.5 border border-neutral-200 rounded-md cursor-pointer hover:border-primary hover:bg-primary/5 transition-basic text-sm;
-}
-
-.size-option-selected {
-  @apply border-primary bg-primary/10 text-primary font-medium;
-}
-
-/* 复选框样式 */
-.size-checkbox {
-  @apply w-4 h-4 text-primary focus:ring-primary border-neutral-300 rounded;
-}
-
-/* Logo动画效果 */
-.logo-container {
-  @apply relative inline-flex items-center justify-center;
-}
-
+/* Logo动画效果 - 已直接内嵌到HTML中 */
 .logo-icon {
-  @apply relative z-10 text-2xl;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.logo-glow {
-  @apply absolute inset-0 bg-primary/20 rounded-full blur-md;
-  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
@@ -800,23 +680,13 @@ header {
   }
 }
 
-/* 加载更多样式 */
-.loading-more {
-  @apply col-span-full flex justify-center items-center py-6;
-}
-
-.load-more-end {
-  @apply text-sm text-gray-400 italic;
-}
-
+/* 加载更多样式 - 已直接内嵌到HTML中 */
 
 .detail-icon-wrapper {
-  @apply flex-1 flex items-center justify-center bg-white rounded-lg border border-neutral-100 p-4;
   min-height: 200px;
 }
 
 .detail-icon-container {
-  @apply flex items-center justify-center;
   width: 160px;
   height: 160px;
 }
@@ -824,11 +694,17 @@ header {
 /* 移除详情页图标容器的特殊样式覆盖，使用原始的icon-svg-wrapper样式 */
 
 .preview-controls {
-  @apply flex justify-between items-center pt-2 border-t border-neutral-200;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
 }
 
 .preview-info {
-  @apply flex items-center gap-2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* 移动端适配 */
@@ -849,12 +725,16 @@ header {
   }
 
   .preview-controls {
-    @apply text-xs;
+    font-size: 0.75rem;
   }
 
 
   .group-badge {
-    @apply text-xs px-1.5 py-0.5;
+    font-size: 0.75rem;
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
     font-size: 10px;
   }
 }
@@ -871,9 +751,7 @@ header {
 }
 
 /* 图片复制按钮样式 */
-.copy-image-btn {
-  @apply bg-purple-500 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded-lg transition-basic flex items-center gap-1;
-}
+
 
 /* 用于图片转换的临时容器 */
 .temp-conversion-container {
