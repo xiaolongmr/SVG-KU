@@ -211,14 +211,14 @@ function initializeEventListeners() {
   // 尺寸选择器
   if (sizeOptions) {
     sizeOptions.addEventListener('click', (e) => {
-        // 忽略自定义尺寸输入框区域的点击
-        if (e.target.closest('.custom-size-container')) {
-          return;
-        }
-        
-        const sizeOption = e.target.closest('.size-option');
-        if (sizeOption) {
-          document.querySelectorAll('.size-option').forEach(option => {
+      // 忽略自定义尺寸输入框区域的点击
+      if (e.target.closest('.custom-size-container')) {
+        return;
+      }
+
+      const sizeOption = e.target.closest('.size-option');
+      if (sizeOption) {
+        document.querySelectorAll('.size-option').forEach(option => {
           // 移除所有选中状态的Tailwind类
           option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
           // 添加默认状态的Tailwind类
@@ -283,6 +283,10 @@ function initializeEventListeners() {
             });
 
             updateSelectedPathInfo();
+            // 更新URL参数，确保颜色变化反映在URL中
+            if (currentIcon && currentIcon.id) {
+              updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
+            }
             showToast('已为所有路径生成随机颜色');
           } else {
             showToast('此图标只有一个路径，请使用整体颜色设置', false);
@@ -995,7 +999,7 @@ function openIconDetail(icon) {
     option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
     // 添加默认状态的Tailwind类
     option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
-    
+
     if (option.dataset.size === '64') {
       // 添加选中状态的Tailwind类到默认选项
       option.classList.add('border-primary', 'bg-primary/10', 'text-primary');
@@ -1004,7 +1008,7 @@ function openIconDetail(icon) {
       selectedSize = 64;
     }
   });
-  
+
   // 清空自定义尺寸输入框
   const customSizeInput = document.getElementById('customSizeInput');
   const customSizeDisplay = document.getElementById('customSizeDisplay');

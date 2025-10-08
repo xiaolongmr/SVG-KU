@@ -75,7 +75,9 @@
       <!-- Logo和标题 -->
       <div class="flex items-center space-x-2">
         <div class="relative inline-flex items-center justify-center">
-          <i class="fa fa-cube text-primary relative z-10 text-2xl"></i>
+          <div id="siteIconContainer" class="w-10 h-10 flex items-center justify-center">
+            <i class="fa fa-cube text-primary relative z-10 text-2xl"></i>
+          </div>
           <div class="absolute inset-0 bg-primary/20 rounded-full blur-md"></div>
         </div>
         <h1 class="text-xl font-bold">飞草科技图标库</h1>
@@ -100,9 +102,77 @@
             <i class="fa fa-refresh text-neutral-600"></i>
           </button>
         </div>
+
+        <!-- 设置按钮 -->
+        <button id="settingsBtn" class="p-2 hover:bg-neutral-100 transition-basic rounded-full" title="设置">
+          <i class="fa fa-cog text-neutral-600"></i>
+        </button>
       </div>
     </div>
   </header>
+
+  <!-- 设置模态框 -->
+  <div id="settingsModal"
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
+    <div
+      class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl transform scale-95 transition-basic">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold">设置</h3>
+        <button id="closeSettingsModal" class="p-2 hover:bg-neutral-100 rounded-full">
+          <i class="fa fa-times text-neutral-600"></i>
+        </button>
+      </div>
+
+      <!-- 本地存储提示 -->
+      <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+        <p class="text-sm text-blue-700">
+          您的设置将存储在浏览器本地。
+        </p>
+      </div>
+
+      <!-- 自定义设置表单 -->
+      <form id="settingsForm" class="space-y-6">
+        <!-- 图标库CDN地址设置 -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">图标库CDN地址</label>
+          <input type="url" id="iconCdnUrl"
+            placeholder="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.js"
+            class="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-basic">
+          <p class="text-xs text-gray-500 mt-1">自定义图标库资源的加载地址</p>
+        </div>
+
+        <!-- 网站名称设置 -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">网站名称</label>
+          <input type="text" id="siteName" placeholder="飞草科技图标库"
+            class="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-basic">
+          <p class="text-xs text-gray-500 mt-1">自定义显示在顶部导航栏的网站名称</p>
+        </div>
+
+        <!-- 网站图标设置 -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">网站图标</label>
+          <input type="text" id="siteIconClass" placeholder="fa-cube"
+            class="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-basic">
+          <p class="text-xs text-gray-500 mt-1">使用<a href="https://fontawesome.com/search?o=r" target="_blank"
+              class="text-blue-500 hover:underline"> Font Awesome Pro </a>图标类名（支持Pro）如：fa-home、fa-star，或直接输入图片URL</p>
+        </div>
+      </form>
+
+      <div class="flex justify-between mt-8">
+        <button id="resetSettingsBtn"
+          class="px-4 py-2 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-basic">
+          重置设置
+        </button>
+        <button id="saveSettingsBtn"
+          class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-basic">
+          保存设置
+        </button>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- 主内容区 -->
   <main class="container mx-auto px-6 py-8">
@@ -209,7 +279,14 @@
       class="bg-white rounded-xl shadow-xl max-w-5xl w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
       <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
-        <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
+        <div class="flex items-center">
+          <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
+          <button id="copyUrlBtn"
+            class="text-neutral-400 hover:text-neutral-600 transition-all duration-200 flex items-center text-sm px-3 py-1 rounded-full">
+            <i class="fa-solid fa-link-simple text-[1.9em] hover:text-primary"></i>
+            <span class="hidden sm:inline">复制链接</span>
+          </button>
+        </div>
         <button id="closeModal"
           class="group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500">
           <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
@@ -536,6 +613,7 @@
   <script src="js/download-manager.js"></script> <!-- 下载管理功能 -->
   <script src="js/ps-plugin-utils.js"></script> <!-- Photoshop插件相关功能 -->
   <script src="js/main.js"></script> <!-- 主脚本逻辑 -->
+  <script src="js/settings.js"></script> <!-- 设置管理功能 -->
 </body>
 
 </html>

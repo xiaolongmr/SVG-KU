@@ -163,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化背景颜色切换功能
     initBackgroundColorChanger();
+
+    // 检查URL参数中是否包含icon id，如果包含则打开对应图标详情
+    checkUrlForIconId();
   }, 500);
 
   // 监听窗口大小变化，重新计算显示数量
@@ -203,6 +206,19 @@ function throttle(func, limit) {
       setTimeout(() => inThrottle = false, limit);
     }
   }
+}
+
+// 防抖函数
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
 
 function initializeEventListeners() {
@@ -1016,7 +1032,10 @@ function initializeEventListeners() {
           }
 
           // 更新全局状态
-          pathColors.set(currentIcon.id, pathColorsMap);
+          pathColors.set(currentIcon.id, pathColorsMap)
+          
+          // 更新URL参数，确保颜色变化反映在URL中
+          updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
           iconColors.delete(currentIcon.id); // 清除整体颜色
 
           updateSVGCodeDisplay();
@@ -1375,17 +1394,336 @@ function searchIcons() {
   }
 }
 
-// 防抖函数
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
+// 检查URL中是否包含icon id参数，如果包含则打开对应图标详情，并应用color参数
+function checkUrlForIconId() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const iconId = urlParams.get('id');
+  const colorParam = urlParams.get('color');
+
+  if (iconId) {
+    console.log(`检测到URL中的图标ID: ${iconId}`);
+    if (colorParam) {
+      console.log(`检测到URL中的颜色参数: ${colorParam}`);
+      // 即使图标详情还没打开，也先从URL参数解析颜色信息并保存到全局状态
+      // 这样当页面元素加载完成后，主页图标颜色就能正确显示
+      preloadColorFromUrlParam(iconId, colorParam);
+    }
+    
+    // 增加尝试次数和延迟时间，确保SVG资源有足够时间加载
+    let attemptCount = 0;
+    const maxAttempts = 5;
+    
+    function tryFindIcon() {
+      attemptCount++;
+      
+      // 首先尝试从已加载的图标中查找
+      let targetIcon = allIcons.find(icon => icon.id === iconId);
+      
+      // 如果在已加载的图标中找不到，则直接从SVG symbols中查找
+      if (!targetIcon) {
+        const svgContainer = document.querySelector('svg');
+        if (svgContainer) {
+          const symbol = svgContainer.querySelector(`symbol[id="${iconId}"]`);
+          if (symbol) {
+            // 确保创建完整的图标对象，包含所有必要属性
+            const content = symbol.innerHTML;
+            const svgCode = `<svg viewBox="${symbol.getAttribute('viewBox') || '0 0 1024 1024'}" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+            
+            targetIcon = {
+              id: symbol.id,
+              originalNameWithoutPrefix: symbol.id,
+              processedId: processIconName(symbol.id),
+              viewBox: symbol.getAttribute('viewBox') || '0 0 1024 1024',
+              content: content,
+              svgCode: svgCode,
+              symbol: symbol
+            };
+          }
+        }
+      }
+      
+      if (targetIcon) {
+        console.log(`找到匹配的图标: ${targetIcon.id}`);
+        
+        // 先检查页面上是否已经有这个图标的DOM元素
+        const homeIconElement = document.querySelector(`.icon-display-container[data-icon-id="${iconId}"]`);
+        
+        if (!homeIconElement && hasMoreItems) {
+          // 如果页面上没有DOM元素且还有更多图标可加载，开始加载更多图标直到找到
+          console.log(`URL中的图标 ${iconId} 不在当前页面DOM中，开始预加载`);
+          
+          const preloadForIconDetail = async () => {
+            let loadAttempts = 0;
+            const maxLoadAttempts = 20;
+            
+            while (loadAttempts < maxLoadAttempts && hasMoreItems) {
+              loadAttempts++;
+              
+              // 加载更多图标
+              loadMoreIcons();
+              
+              // 等待加载完成
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // 检查图标是否已加载到页面上
+              if (document.querySelector(`.icon-display-container[data-icon-id="${iconId}"]`)) {
+                console.log(`预加载成功，图标 ${iconId} 已加载到页面`);
+                break;
+              }
+            }
+            
+            // 无论是否找到，都打开图标详情（openIconDetail函数会处理滚动）
+            openIconDetail(targetIcon, colorParam);
+          };
+          
+          // 开始预加载过程
+          preloadForIconDetail();
+        } else {
+          // 直接打开图标详情
+          openIconDetail(targetIcon, colorParam);
+        }
+      } else if (attemptCount < maxAttempts) {
+        // 如果未找到图标且尝试次数未达上限，继续尝试
+        setTimeout(tryFindIcon, 500 * attemptCount); // 递增延迟时间
+      } else {
+        console.warn(`经过${maxAttempts}次尝试后仍未找到ID为${iconId}的图标`);
+        showToast(`未找到ID为${iconId}的图标`, false);
+      }
+    }
+    
+    // 开始尝试查找图标
+    setTimeout(tryFindIcon, 500);
+  }
+}
+
+// 更新URL中的图标ID和颜色参数，不添加到浏览器历史记录
+function updateUrlWithIconInfo(iconId, colorString) {
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.set('id', iconId);
+  if (colorString) {
+    urlParams.set('color', colorString);
+  } else {
+    urlParams.delete('color');
+  }
+
+  // 构建新的URL
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+
+  // 使用replace方法更新URL，不添加到浏览器历史记录
+  window.history.replaceState(null, '', newUrl);
+}
+
+// 从URL中移除图标ID和颜色参数
+function removeIconIdFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  // 移除id和color参数
+  if (urlParams.has('id')) {
+    urlParams.delete('id');
+  }
+  if (urlParams.has('color')) {
+    urlParams.delete('color');
+  }
+
+  // 构建新的URL
+  const newUrl = urlParams.toString()
+    ? `${window.location.pathname}?${urlParams.toString()}`
+    : window.location.pathname;
+
+  // 使用replace方法更新URL，不添加到浏览器历史记录
+  window.history.replaceState(null, '', newUrl);
+}
+
+// 预加载URL参数中的颜色信息，保存到全局状态
+function preloadColorFromUrlParam(iconId, colorParam) {
+  try {
+    // 清除现有的路径颜色设置
+    if (pathColors.has(iconId)) {
+      pathColors.delete(iconId);
+    }
+    
+    // 解析color参数，格式如"1#fffff,2#ff0000"
+    const colorSegments = colorParam.split(',');
+    
+    // 检查是否为单个路径颜色或整体颜色
+    if (colorSegments.length === 1 && colorSegments[0].startsWith('#')) {
+      // 整体颜色格式: #123456
+      const color = colorSegments[0];
+      iconColors.set(iconId, color);
+      console.log(`预加载整体颜色: ${color} 到图标 ${iconId}`);
+    } else {
+      // 路径颜色格式: 0#123456,1#654321
+      const pathColorMap = new Map();
+      let hasPathColors = false;
+      
+      // 预加载路径颜色，减少日志输出
+        colorSegments.forEach(segment => {
+          const match = segment.match(/^(\d+)#([0-9a-fA-F]{6})$/);
+          if (match) {
+            const pathIndex = parseInt(match[1]);
+            const color = `#${match[2]}`;
+            pathColorMap.set(pathIndex, color);
+            hasPathColors = true;
+          }
+        });
+        console.log(`预加载图标 ${iconId} 的 ${pathColorMap.size} 个路径颜色`);
+      
+      // 如果有路径颜色，保存
+      if (hasPathColors) {
+        pathColors.set(iconId, pathColorMap);
+      }
+    }
+    
+    // 尝试立即更新主页图标颜色
+    // 如果此时DOM还未完全加载，这个更新可能会失败，但稍后渲染时会再次应用
+    setTimeout(() => {
+      updateHomeIconColorFromUrl(iconId);
+    }, 500);
+  } catch (error) {
+    console.error('预加载颜色参数失败:', error);
+  }
+}
+
+// 从URL参数更新主页图标颜色
+function updateHomeIconColorFromUrl(iconId) {
+  // 查找主页上的图标容器
+  const homeIconContainer = document.querySelector(`.icon-display-container[data-icon-id="${iconId}"]`);
+  if (!homeIconContainer) {
+    // 只在调试模式下显示警告
+    // console.warn(`未找到主页图标 ${iconId}`);
+    return;
+  }
+  
+  // 查找主页图标中的SVG元素
+  let homeIconSvg = homeIconContainer.querySelector('.icon-svg-element');
+  if (!homeIconSvg) {
+    homeIconSvg = homeIconContainer.querySelector('svg');
+  }
+  
+  if (homeIconSvg) {
+    // 应用已保存的颜色设置
+    const iconColor = iconColors.get(iconId);
+    const pathColorMap = pathColors.get(iconId);
+    
+    if (pathColorMap && pathColorMap.size > 0) {
+      // 如果有路径级别的颜色设置
+      const elements = homeIconSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+      pathColorMap.forEach((color, index) => {
+        if (elements[index]) {
+          const element = elements[index];
+          element.setAttribute('fill', color);
+          // 如果元素有stroke属性，也同步更新
+          if (element.hasAttribute('stroke') && element.getAttribute('stroke') !== 'none') {
+            element.setAttribute('stroke', color);
+          }
+        }
+      });
+      console.log(`已从URL参数更新主页图标 ${iconId} 的路径颜色`);
+    } else if (iconColor) {
+      // 如果有整体颜色设置
+      const elements = homeIconSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+      elements.forEach(el => {
+        if (el.hasAttribute('fill') && el.getAttribute('fill') !== 'none') {
+          el.setAttribute('fill', iconColor);
+        }
+        if (el.hasAttribute('stroke') && el.getAttribute('stroke') !== 'none') {
+          el.setAttribute('stroke', iconColor);
+        }
+      });
+      console.log(`已从URL参数更新主页图标 ${iconId} 的整体颜色为 ${iconColor}`);
+    }
+  } else {
+    console.warn(`未找到主页图标 ${iconId} 的SVG元素`);
+  }
+}
+
+// 从预览图标SVG元素直接获取颜色字符串表示
+function getCurrentIconColorString() {
+  if (!currentIcon) return '';
+  
+  // 获取预览区域中的SVG元素
+  const modalIconPreview = document.getElementById('modalIconPreview');
+  if (!modalIconPreview) return '';
+  
+  // 查找SVG元素
+  const svgElement = modalIconPreview.querySelector('svg');
+  if (!svgElement) return '';
+  
+  // 获取所有有颜色的路径和形状元素
+  const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+  if (elements.length === 0) return '';
+  
+  // 检查所有元素是否有相同的颜色（整体颜色）
+  let allSameColor = true;
+  let firstColor = null;
+  const pathColors = [];
+  
+  elements.forEach((element, index) => {
+    // 获取填充颜色，如果没有填充则尝试获取描边颜色
+    let color = element.getAttribute('fill');
+    if (!color || color === 'none') {
+      color = element.getAttribute('stroke');
+    }
+    
+    // 如果找到颜色并且是有效的十六进制颜色格式
+    if (color && color.startsWith('#')) {
+      pathColors.push({ index, color });
+      
+      // 检查是否所有元素颜色相同
+      if (firstColor === null) {
+        firstColor = color;
+      } else if (firstColor !== color) {
+        allSameColor = false;
+      }
+    }
+  });
+  
+  // 如果所有元素颜色相同，使用整体颜色格式
+  if (allSameColor && firstColor && firstColor !== '#409eff') {
+    return firstColor;
+  }
+  
+  // 如果有不同的路径颜色，使用路径颜色格式
+  if (pathColors.length > 0) {
+    const colorSegments = [];
+    
+    pathColors.forEach(({ index, color }) => {
+      // 移除颜色中的#前缀
+      const colorValue = color.replace('#', '');
+      colorSegments.push(`${index}#${colorValue}`);
+    });
+    
+    return colorSegments.join(',');
+  }
+  
+  // 如果没有自定义颜色，返回空字符串
+  return '';
+}
+
+// 从URL参数中解析并应用颜色信息（在打开图标详情时使用）
+function applyColorFromUrlParam(icon, colorParam) {
+  try {
+    // 先通过 preloadColorFromUrlParam 处理颜色参数保存
+    preloadColorFromUrlParam(icon.id, colorParam);
+    
+    // 设置当前图标的颜色（用于详情页）
+    const iconColor = iconColors.get(icon.id);
+    const pathColorMap = pathColors.get(icon.id);
+    
+    if (pathColorMap && pathColorMap.size > 0) {
+      // 如果有路径级别的颜色设置，使用第一个路径的颜色作为当前图标颜色
+      const firstColor = pathColorMap.values().next().value;
+      if (firstColor) {
+        currentIconColor = firstColor;
+      }
+    } else if (iconColor) {
+      currentIconColor = iconColor;
+    }
+    
+    console.log(`应用颜色到图标详情: ${currentIconColor}`);
+  } catch (error) {
+    console.error('应用颜色参数失败:', error);
+  }
 }
 
 function createIconItem(icon) {
@@ -1459,8 +1797,8 @@ function createIconItem(icon) {
           } else if (originalStroke) {
             console.log(`跳过设置描边，原始值为: ${originalStroke}`);
           } else {
-            console.log(`跳过设置描边，元素原本没有描边属性`);
-          }
+              // 静默跳过，减少日志输出
+            }
         }
       });
     } else if (iconOverallColor) {
@@ -1525,11 +1863,69 @@ function createIconItem(icon) {
   return container;
 }
 
-function openIconDetail(icon) {
+function openIconDetail(icon, colorParam) {
   if (!iconModal) return;
 
   currentIcon = icon;
   currentIconColor = iconColors.get(icon.id) || '#409eff';
+
+  // 如果提供了color参数，则解析并应用颜色
+  if (colorParam) {
+    applyColorFromUrlParam(icon, colorParam);
+  }
+
+  // 在打开详情页前，先找到主页对应的图标元素并滚动到可见区域
+  const scrollToIcon = () => {
+    const homeIconContainer = document.querySelector(`.icon-display-container[data-icon-id="${icon.id}"]`);
+    if (homeIconContainer) {
+      // 平滑滚动到图标位置
+      homeIconContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      console.log(`已滚动到主页图标 ${icon.id} 的位置`);
+      return true;
+    }
+    return false;
+  };
+
+  // 先尝试直接滚动到图标
+  if (scrollToIcon()) {
+    // 如果图标已在当前页面，直接继续执行
+  } else if (hasMoreItems && !isLoading) {
+    // 如果图标不在当前页面且有更多内容可加载
+    console.log(`图标 ${icon.id} 不在当前页面，开始滚动加载`);
+    
+    // 定义一个滚动加载函数，直到找到图标或没有更多内容
+    const loadAndSearchForIcon = async () => {
+      // 防止无限循环的最大尝试次数
+      let maxScrollAttempts = 20;
+      
+      while (maxScrollAttempts > 0) {
+        maxScrollAttempts--;
+        
+        // 加载更多图标
+        loadMoreIcons();
+        
+        // 等待加载完成
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // 再次尝试滚动到图标
+        if (scrollToIcon()) {
+          break;
+        }
+        
+        // 如果没有更多图标可加载，退出循环
+        if (!hasMoreItems) {
+          console.log(`已加载所有图标，仍未找到图标 ${icon.id}`);
+          break;
+        }
+      }
+    };
+    
+    // 启动滚动加载过程
+    loadAndSearchForIcon();
+  }
+
+  // 更新URL中的id参数和color参数，不添加到浏览器历史记录
+  updateUrlWithIconInfo(icon.id, getCurrentIconColorString());
 
   // 初始化自定义颜色选择器
   try {
@@ -1633,9 +2029,9 @@ function openIconDetail(icon) {
               el.setAttribute('stroke', pathColor);
               console.log(`设置描边颜色，原始描边值: ${originalStroke}`);
             } else if (originalStroke) {
-              console.log(`跳过设置描边，原始值为: ${originalStroke}`);
+              // 只在需要时显示
             } else {
-              console.log(`跳过设置描边，元素原本没有描边属性`);
+              // 静默跳过，减少日志输出
             }
           }
         });
@@ -2413,7 +2809,7 @@ function setPathSelectedState(element, index) {
         strokeWidth = `${0.5 * (diagonal / referenceDiagonal)}px`;
         // 使用1.5作为基础虚线间隔
         strokeDasharray = Math.max(1.5, Math.round(1.5 * (diagonal / referenceDiagonal))).toString();
-        
+
         // 获取当前图标预览的缩放比例（如果存在）
         let currentScale = 1;
         // 尝试从modalIconPreview元素获取当前缩放比例
@@ -2429,16 +2825,16 @@ function setPathSelectedState(element, index) {
             }
           }
         }
-        
+
         // 根据当前缩放比例调整描边宽度和虚线间隔
         // 当缩小时，需要增加描边宽度和虚线间隔以保持可见性
         // 当放大时，需要减小描边宽度和虚线间隔以避免过于粗重
         const adjustedStrokeWidth = parseFloat(strokeWidth) / currentScale;
         const adjustedDasharray = parseFloat(strokeDasharray) / currentScale;
-        
+
         strokeWidth = `${Math.max(0.2, adjustedStrokeWidth)}px`; // 最小不小于0.2px
         strokeDasharray = Math.max(0.5, Math.round(adjustedDasharray * 10) / 10).toString(); // 最小不小于0.5
-        
+
         console.log(`setPathSelectedState: viewBox=${viewBox}, 当前缩放比例=${currentScale}, 计算的描边宽度=${strokeWidth}, 虚线间隔=${strokeDasharray}`);
       }
     }
@@ -2782,6 +3178,13 @@ function updateIconColor(color, isReset = false) {
 
   updateSVGCodeDisplay();
   console.log(`updateIconColor: 已更新图标 ${currentIcon.id} 的颜色为 ${color}`);
+  
+  // 更新URL中的color参数
+  if (currentIcon) {
+    const colorString = getCurrentIconColorString();
+    updateUrlWithIconInfo(currentIcon.id, colorString);
+    console.log(`updateIconColor: 已更新URL中的color参数为: ${colorString}`);
+  }
 }
 
 // updateIconItemColor函数已被SVGColorManager替代，不再需要
@@ -2926,6 +3329,12 @@ function resetIconColor() {
   updateSVGCodeDisplay();
   showToast('已重置为原始颜色');
   console.log(`resetIconColor: 已重置图标 ${currentIcon.id} 的颜色`);
+  
+  // 更新URL中的color参数，重置后移除颜色信息
+  if (currentIcon) {
+    updateUrlWithIconInfo(currentIcon.id, '');
+    console.log(`resetIconColor: 已更新URL，移除color参数`);
+  }
 }
 
 function navigateToPrevIcon() {
@@ -2964,6 +3373,8 @@ function navigateToNextIcon() {
 
 function closeIconModal() {
   if (iconModal) {
+    // 移除URL中的id参数
+    removeIconIdFromUrl();
     // 添加动画效果
     const modalContent = iconModal.querySelector('div:not(.modal-nav-buttons)');
     if (modalContent) {
@@ -4096,7 +4507,7 @@ function initIconPreviewZoom() {
       document.querySelector('.detail-preview-container');
 
     if (!svgElement || !previewContainer) {
-      console.log('图标溢出检查: 找不到SVG元素或预览容器');
+      // 图标溢出检查: 找不到SVG元素或预览容器
       return false;
     }
 
@@ -4109,8 +4520,8 @@ function initIconPreviewZoom() {
     const renderedHeight = renderedRect.height;
 
     // 增加日志输出以便调试
-    console.log(`图标溢出检查: 容器尺寸=${containerRect.width}x${containerRect.height}, 实际渲染尺寸=${renderedWidth}x${renderedHeight}`);
-    console.log(`当前缩放比例: ${currentScale}`);
+    // console.log(`图标溢出检查: 容器尺寸=${containerRect.width}x${containerRect.height}, 实际渲染尺寸=${renderedWidth}x${renderedHeight}`);
+    // console.log(`当前缩放比例: ${currentScale}`);
 
     // 考虑当前缩放比例，计算渲染后的实际尺寸
     // 这里使用实际渲染尺寸乘以当前缩放比例
@@ -4123,7 +4534,7 @@ function initIconPreviewZoom() {
     const isOverflowing = effectiveWidth > containerRect.width - margin ||
       effectiveHeight > containerRect.height - margin;
 
-    console.log(`计算后的有效尺寸=${effectiveWidth}x${effectiveHeight}, 是否溢出=${isOverflowing}, 阈值=${containerRect.width - margin}x${containerRect.height - margin}`);
+    // console.log(`计算后的有效尺寸=${effectiveWidth}x${effectiveHeight}, 是否溢出=${isOverflowing}, 阈值=${containerRect.width - margin}x${containerRect.height - margin}`);
     return isOverflowing;
   }
 
@@ -4397,10 +4808,10 @@ function initIconPreviewZoom() {
       }
 
       console.log(`图标预览缩放: ${Math.round(currentScale * 100)}%`);
-      
+
       // 更新返回中心点按钮的可见性
       updateResetButtonVisibility();
-      
+
       // 重新设置所有选中路径的样式，以适应新的缩放比例
       const selectedPaths = modalIconPreview.querySelectorAll('[selected="true"]');
       selectedPaths.forEach((path, index) => {
@@ -4411,7 +4822,7 @@ function initIconPreviewZoom() {
 
   // 获取返回中心点按钮
   const resetIconPositionBtn = document.getElementById('resetIconPositionBtn');
-  
+
   // 重置缩放和位移的函数（可选，供其他地方调用）
   window.resetIconPreviewZoom = function () {
     currentScale = 1;
@@ -4423,24 +4834,24 @@ function initIconPreviewZoom() {
     updateCursorStyle();
     showToast('图标缩放和位置已重置', true);
   };
-  
+
   // 为返回中心点按钮添加点击事件
   if (resetIconPositionBtn) {
     resetIconPositionBtn.addEventListener('click', resetIconPreviewZoom);
   }
-  
+
   // 检查图标是否超出预览区域边界
   function isIconOutOfBounds() {
     // 当图标位置不在中心点或缩放比例大于1时认为超出边界
     return currentX !== 0 || currentY !== 0 || currentScale > 1;
   }
-  
+
   // 更新返回中心点按钮的显示状态
   function updateResetButtonVisibility() {
     if (!resetIconPositionBtn) return;
-    
+
     const isOutOfBounds = isIconOutOfBounds();
-    
+
     if (isOutOfBounds) {
       resetIconPositionBtn.classList.remove('opacity-0', 'pointer-events-none');
       resetIconPositionBtn.classList.add('opacity-100');
@@ -4449,7 +4860,7 @@ function initIconPreviewZoom() {
       resetIconPositionBtn.classList.remove('opacity-100');
     }
   }
-  
+
   // 更新鼠标指针样式的函数
   function updateCursorStyle() {
     modalIconPreview.style.cursor = isIconOverflowingContainer() ? 'grab' : 'default';
@@ -4463,7 +4874,7 @@ function initIconPreviewZoom() {
   // 初始更新鼠标指针样式
   updateCursorStyle();
 
-  console.log('图标预览缩放和拖拽功能已初始化（支持滚轮、触摸缩放和拖拽移动）');
+  // 图标预览缩放和拖拽功能已初始化（支持滚轮、触摸缩放和拖拽移动）
 }
 
 // 背景颜色切换功能
@@ -4586,11 +4997,94 @@ function initBackgroundColorChanger() {
   }
 }
 
+// 复制当前URL到剪贴板
+function copyCurrentUrl() {
+  // 获取当前完整URL
+  const currentUrl = window.location.href;
+  
+  // 使用现代API复制到剪贴板
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(currentUrl).then(() => {
+      // 显示复制成功提示
+      showToast('链接已复制到剪贴板！');
+      console.log('URL已成功复制到剪贴板');
+      
+      // 可选：临时更改按钮样式以提供视觉反馈
+      const copyBtn = document.getElementById('copyUrlBtn');
+      if (copyBtn) {
+        const originalContent = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fa-solid fa-check mr-1 text-lg"></i><span class="hidden sm:inline">已复制</span>';
+        copyBtn.classList.add('text-green-600');
+        copyBtn.classList.remove('text-neutral-400');
+        
+        // 1.5秒后恢复按钮原始状态
+        setTimeout(() => {
+          copyBtn.innerHTML = originalContent;
+          copyBtn.classList.remove('text-green-600');
+          copyBtn.classList.add('text-neutral-400');
+        }, 1500);
+      }
+    }).catch(err => {
+      console.error('复制失败:', err);
+      showToast('复制失败，请手动复制URL');
+    });
+  } else {
+    // 降级方案：使用传统方法复制
+    const textArea = document.createElement('textarea');
+    textArea.value = currentUrl;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      document.execCommand('copy');
+      showToast('链接已复制到剪贴板！');
+      console.log('URL已成功复制到剪贴板（传统方法）');
+    } catch (err) {
+      console.error('复制失败:', err);
+      showToast('复制失败，请手动复制URL');
+    }
+    
+    document.body.removeChild(textArea);
+  }
+}
+
 window.IconLibrary = {
   showToast,
   updateIconColor,
   resetIconColor,
-  openIconDetail
+  openIconDetail,
+  copyCurrentUrl
 };
+
+// 页面加载完成后，尝试应用URL参数中的颜色到主页图标
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const iconId = urlParams.get('id');
+  const colorParam = urlParams.get('color');
+  
+  if (iconId && colorParam) {
+    console.log(`页面完全加载后，尝试应用颜色到主页图标: ${iconId}`);
+    // 确保预加载颜色信息
+    if (typeof preloadColorFromUrlParam === 'function') {
+      preloadColorFromUrlParam(iconId, colorParam);
+    }
+    // 延迟一点时间再次尝试更新主页图标颜色，确保DOM元素完全渲染
+    setTimeout(() => {
+      if (typeof updateHomeIconColorFromUrl === 'function') {
+        updateHomeIconColorFromUrl(iconId);
+      }
+    }, 1000);
+  }
+  
+  // 绑定URL复制按钮的点击事件
+  const copyUrlBtn = document.getElementById('copyUrlBtn');
+  if (copyUrlBtn) {
+    copyUrlBtn.addEventListener('click', copyCurrentUrl);
+    console.log('URL复制按钮点击事件已绑定');
+  }
+});
 
 console.log('Main.js loaded successfully!');
