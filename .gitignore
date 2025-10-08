@@ -1,6 +1,7 @@
 # 忽略文件夹
 .trae/
 .vscode/
+node_modules/
 ps-plugin/
 ps-shadowify 2.0/
 sd-ppp2_PS/
@@ -9,3 +10,5 @@ svgicon-ps-uxp-plugin/
 
 # 忽略文件
 SVG随机颜色处理情况说明.md
+package-lock.json
+package.json
