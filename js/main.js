@@ -2081,11 +2081,11 @@ function setPathSelectedState(element, index) {
   // 设置选中状态的红色虚线描边
   element.setAttribute('selected', 'true');
   element.style.stroke = 'rgb(255, 0, 0)';
-  element.style.strokeDasharray = '2';
-  
-  // 计算基于viewBox大小的相对描边宽度
-  let strokeWidth = '0.5px'; // 默认值
-  
+
+  // 默认值，更细的描边和更小的虚线间隔
+  let strokeWidth = '0.5px';
+  let strokeDasharray = '1.5';
+
   // 获取SVG元素
   let svgElement = element.closest('svg');
   if (svgElement) {
@@ -2098,17 +2098,22 @@ function setPathSelectedState(element, index) {
         const [, , width, height] = viewBoxValues;
         // 计算viewBox对角线长度作为参考尺寸
         const diagonal = Math.sqrt(width * width + height * height);
-        
-        // 根据对角线长度计算相对描边宽度
-        // 对于1024x1024的图标，约为0.5px
-        // 对于50x50的图标，约为0.024px
-        strokeWidth = `${diagonal * 0.00048828125}px`;
-        console.log(`setPathSelectedState: viewBox=${viewBox}, 计算的描边宽度=${strokeWidth}`);
+
+        // 根据对角线长度计算相对描边宽度和虚线间隔
+        // 对于viewBox="0 0 50 50"，使用更细的描边宽度和更小的虚线间隔
+        // 更大的viewBox按比例调整，但保持整体更细、更密集的效果
+        const referenceDiagonal = 50 * Math.sqrt(2); // 50x50 viewBox的对角线
+        // 使用0.5作为基础描边宽度，更小的系数使描边更细
+        strokeWidth = `${0.5 * (diagonal / referenceDiagonal)}px`;
+        // 使用1.5作为基础虚线间隔，更小的系数使间隔更密集
+        strokeDasharray = Math.max(1.5, Math.round(1.5 * (diagonal / referenceDiagonal))).toString();
+        console.log(`setPathSelectedState: viewBox=${viewBox}, 计算的描边宽度=${strokeWidth}, 虚线间隔=${strokeDasharray}`);
       }
     }
   }
-  
+
   element.style.strokeWidth = strokeWidth;
+  element.style.strokeDasharray = strokeDasharray;
   element.classList.add('selected');
   element.classList.add('path-selected');
 
