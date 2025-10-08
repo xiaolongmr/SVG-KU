@@ -1666,7 +1666,7 @@ function updateSVGCodeDisplay() {
     }
   }
   // 如果用户没有修改颜色，保持原始样子
-  
+
   // 检测并移除嵌套的SVG标签
   if (svgCodeWithColor.includes('<svg') && svgCodeWithColor.includes('</svg>')) {
     // 创建临时元素来解析SVG内容
@@ -2082,11 +2082,37 @@ function setPathSelectedState(element, index) {
   element.setAttribute('selected', 'true');
   element.style.stroke = 'rgb(255, 0, 0)';
   element.style.strokeDasharray = '2';
-  element.style.strokeWidth = '0.5px';
+  
+  // 计算基于viewBox大小的相对描边宽度
+  let strokeWidth = '0.5px'; // 默认值
+  
+  // 获取SVG元素
+  let svgElement = element.closest('svg');
+  if (svgElement) {
+    // 获取viewBox属性
+    const viewBox = svgElement.getAttribute('viewBox');
+    if (viewBox) {
+      // 解析viewBox值 [x, y, width, height]
+      const viewBoxValues = viewBox.split(/\s+/).filter(Boolean).map(parseFloat);
+      if (viewBoxValues.length >= 4) {
+        const [, , width, height] = viewBoxValues;
+        // 计算viewBox对角线长度作为参考尺寸
+        const diagonal = Math.sqrt(width * width + height * height);
+        
+        // 根据对角线长度计算相对描边宽度
+        // 对于1024x1024的图标，约为0.5px
+        // 对于50x50的图标，约为0.024px
+        strokeWidth = `${diagonal * 0.00048828125}px`;
+        console.log(`setPathSelectedState: viewBox=${viewBox}, 计算的描边宽度=${strokeWidth}`);
+      }
+    }
+  }
+  
+  element.style.strokeWidth = strokeWidth;
   element.classList.add('selected');
   element.classList.add('path-selected');
 
-  console.log(`✅ 路径 ${index} 已设置选中状态（红色虚线描边）`);
+  console.log(`✅ 路径 ${index} 已设置选中状态（红色虚线描边，使用相对描边宽度）`);
 }
 
 /**
