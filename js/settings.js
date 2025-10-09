@@ -98,7 +98,7 @@ class SettingsManager {
   // 绑定事件监听器
   bindEvents() {
     // 设置面板显示/隐藏事件
-    this.settingsBtn?.addEventListener('click', () => this.showSettingsModal());
+    // 点击设置按钮时触发 - 已在breadcrumb-menu.js中处理
     this.closeSettingsModal?.addEventListener('click', () => this.hideSettingsModal());
 
     // 保存和重置设置按钮
@@ -125,15 +125,29 @@ class SettingsManager {
   // 显示设置模态框
   showSettingsModal() {
     this.updateFormFields();
-    this.settingsModal.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
-    this.settingsModal.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
+    // 使用与详情页弹窗相同的显示逻辑
+    this.settingsModal.classList.remove('opacity-0', 'pointer-events-none');
+    const modalContent = this.settingsModal.querySelector('div');
+    if (modalContent) {
+      modalContent.classList.remove('scale-95');
+      modalContent.classList.add('scale-100');
+    }
     document.body.style.overflow = 'hidden';
   }
 
   // 隐藏设置模态框
   hideSettingsModal() {
-    this.settingsModal.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
-    this.settingsModal.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
+    // 使用与详情页弹窗相同的隐藏逻辑
+    const modalContent = this.settingsModal.querySelector('div');
+    if (modalContent) {
+      modalContent.classList.remove('scale-100');
+      modalContent.classList.add('scale-95');
+    }
+    
+    // 延迟隐藏模态框，等待动画完成
+    setTimeout(() => {
+      this.settingsModal.classList.add('opacity-0', 'pointer-events-none');
+    }, 200);
     document.body.style.overflow = '';
   }
 

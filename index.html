@@ -103,30 +103,28 @@
           </button>
         </div>
 
-        <!-- 设置按钮 -->
-        <button id="settingsBtn" class="p-2 hover:bg-neutral-100 transition-basic rounded-full" title="设置">
-          <i class="fa fa-cog text-neutral-600"></i>
-        </button>
+        <!-- 顶部导航栏中的设置按钮已移至右下角面包屑菜单 -->
       </div>
     </div>
   </header>
 
   <!-- 设置模态框 -->
   <div id="settingsModal"
-    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-basic">
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-200">
     <div
-      class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl transform scale-95 transition-basic">
+      class="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl transform scale-95 transition-transform duration-200">
       <div class="flex justify-between items-center mb-6">
         <h3 class="text-xl font-bold">设置</h3>
-        <button id="closeSettingsModal" class="p-2 hover:bg-neutral-100 rounded-full">
-          <i class="fa fa-times text-neutral-600"></i>
+        <button id="closeSettingsModal"
+          class="group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500">
+          <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
         </button>
       </div>
 
       <!-- 本地存储提示 -->
       <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
         <p class="text-sm text-blue-700">
-          您的设置将存储在浏览器本地。
+          您的设置将存储在浏览器本地，也可登录后同步到云端。
         </p>
       </div>
 
@@ -138,7 +136,9 @@
           <input type="url" id="iconCdnUrl"
             placeholder="https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.js"
             class="w-full px-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-basic">
-          <p class="text-xs text-gray-500 mt-1">自定义图标库资源的加载地址</p>
+          <p class="text-xs text-gray-500 mt-1">自定义图标库资源的加载地址<a href="https://codesign.qq.com/app/diver/icon"
+              target="_blank" class="text-blue-500 hover:underline"> Codesign
+            </a>平台创建图标资产可获取</p>
         </div>
 
         <!-- 网站名称设置 -->
@@ -581,6 +581,49 @@
   <!-- 隐藏的PNG转换容器 - 用于后台进行PNG转换处理 -->
   <div id="pngConversionContainer" class="hidden absolute top-0 left-0 z-0"></div>
 
+  <!-- 内嵌JavaScript已移至单独文件 -->
+
+  <!-- 面包屑菜单按钮 - 位于右下角（上移一些位置） -->
+  <div id="breadcrumbMenu" class="fixed bottom-16 right-6 z-40">
+    <!-- 面包屑按钮 -->
+    <button id="breadcrumbBtn"
+      class="w-10 h-10 bg-primary text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:bg-primary/90 active:scale-95">
+      <i class="fa fa-bars text-lg"></i>
+    </button>
+
+    <!-- 四个弹出按钮 - 调整容器位置，使其位于面包屑按钮的左上角 -->
+    <div id="breadcrumbItems"
+      class="absolute top-0 right-full opacity-0 pointer-events-none transition-all duration-300">
+      <!-- 设置按钮 -->
+      <button id="settingsBtn"
+        class="absolute w-10 h-10 bg-white text-neutral-800 rounded-full shadow-md flex items-center justify-center transition-all duration-300 hover:bg-neutral-50 hover:text-primary"
+        title="设置">
+        <i class="fa fa-cog text-lg"></i>
+      </button>
+
+      <!-- 评论按钮 -->
+      <button id="breadcrumbCommentBtn"
+        class="absolute w-10 h-10 bg-white text-neutral-800 rounded-full shadow-md flex items-center justify-center transition-all duration-300 hover:bg-neutral-50 hover:text-primary"
+        title="评论">
+        <i class="fa fa-comment text-lg"></i>
+      </button>
+
+      <!-- 登录按钮 -->
+      <button id="breadcrumbLoginBtn"
+        class="absolute w-10 h-10 bg-white text-neutral-800 rounded-full shadow-md flex items-center justify-center transition-all duration-300 hover:bg-neutral-50 hover:text-primary"
+        title="登录">
+        <i class="fa fa-sign-in-alt text-lg"></i>
+      </button>
+
+      <!-- 打赏按钮 -->
+      <button id="breadcrumbDonationBtn"
+        class="absolute w-10 h-10 bg-white text-neutral-800 rounded-full shadow-md flex items-center justify-center transition-all duration-300 hover:bg-neutral-50 hover:text-primary"
+        title="打赏">
+        <i class="fa fa-heart text-lg"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- 颜色选择器弹窗模板 -->
   <template id="pathColorPickerTemplate">
     <div
@@ -614,6 +657,147 @@
   <script src="js/ps-plugin-utils.js"></script> <!-- Photoshop插件相关功能 -->
   <script src="js/main.js"></script> <!-- 主脚本逻辑 -->
   <script src="js/settings.js"></script> <!-- 设置管理功能 -->
+  <script src="js/breadcrumb-menu.js"></script> <!-- 面包屑菜单功能 -->
+  <!-- 评论弹窗 -->
+  <div id="commentModal"
+    class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div
+      class="relative bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300">
+      <!-- 关闭按钮 -->
+      <button id="closeCommentModal"
+        class="absolute top-4 right-4 group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500 z-10">
+        <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
+      </button>
+
+      <!-- 弹窗标题 -->
+      <div class="border-b border-neutral-200 px-6 py-4 bg-neutral-50">
+        <h3 class="text-xl font-medium text-neutral-800">评论区</h3>
+      </div>
+
+      <!-- 评论内容容器 -->
+      <div class="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+        <div id="twikoo" class="w-full"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登录弹窗 -->
+  <div id="loginModal"
+    class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div
+      class="relative bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300">
+      <!-- 关闭按钮 -->
+      <button id="closeLoginModal"
+        class="absolute top-4 right-4 group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500 z-10">
+        <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
+      </button>
+
+      <!-- 弹窗标题 -->
+      <div class="border-b border-neutral-200 px-6 py-4 bg-neutral-50">
+        <h3 class="text-xl font-medium text-neutral-800">登录</h3>
+      </div>
+
+      <!-- 登录内容 -->
+      <div class="p-6 text-center">
+        <p class="text-neutral-600 mb-8">登录功能开发中，敬请期待！</p>
+        <img src="https://cdn-icons-png.flaticon.com/512/2838/2838408.png" alt="登录开发中"
+          class="w-48 h-48 mx-auto opacity-70">
+      </div>
+    </div>
+  </div>
+
+  <!-- 打赏弹窗 -->
+  <div id="donationModal"
+    class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+    <div
+      class="relative bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300">
+      <!-- 关闭按钮 -->
+      <button id="closeDonationModal"
+        class="absolute top-4 right-4 group text-neutral-500 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-500 active:bg-red-500 z-10">
+        <i class="fa fa-times transition-transform duration-300 group-hover:rotate-180"></i>
+      </button>
+
+      <!-- 弹窗标题 -->
+      <div class="border-b border-neutral-200 px-6 py-4 bg-neutral-50">
+        <h3 class="text-xl font-medium text-neutral-800">打赏支持</h3>
+      </div>
+
+      <!-- 打赏内容 -->
+      <div class="p-6">
+        <!-- 趣味性选项 -->
+        <div id="donationOptions" class="space-y-4 mb-6">
+          <h4 class="font-medium text-neutral-700 mb-2">请选择您想表达的心意：</h4>
+          <div class="grid grid-cols-3 gap-3">
+            <button
+              class="donation-option bg-blue-50 p-4 rounded-lg border-2 border-transparent hover:border-blue-300 transition-all flex flex-col items-center justify-center"
+              data-type="cola">
+              <i class="fa fa-wine-bottle text-blue-500 text-2xl mb-2"></i>
+              <span class="text-sm text-neutral-700">送可乐</span>
+              <span class="text-xs text-neutral-500 mt-1">3币</span>
+            </button>
+            <button
+              class="donation-option bg-yellow-50 p-4 rounded-lg border-2 border-transparent hover:border-yellow-300 transition-all flex flex-col items-center justify-center"
+              data-type="chicken">
+              <i class="fa fa-drumstick-bite text-yellow-500 text-2xl mb-2"></i>
+              <span class="text-sm text-neutral-700">加鸡腿</span>
+              <span class="text-xs text-neutral-500 mt-1">10币</span>
+            </button>
+            <button
+              class="donation-option bg-red-50 p-4 rounded-lg border-2 border-transparent hover:border-red-300 transition-all flex flex-col items-center justify-center"
+              data-type="flower">
+              <i class="fa fa-hamburger text-red-500 text-2xl mb-2"></i>
+              <span class="text-sm text-neutral-700">疯狂星期四</span>
+              <span class="text-xs text-neutral-500 mt-1">50币</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 感谢信息 -->
+        <div id="donationThanks" class="hidden text-center mb-6">
+          <div class="mb-4">
+            <i class="fa fa-heart text-red-500 text-4xl animate-bounce"></i>
+          </div>
+          <h4 id="thanksMessage" class="font-medium text-lg text-neutral-800 mb-2"></h4>
+          <p class="text-neutral-600 text-sm">非常感谢您的支持！</p>
+        </div>
+
+        <!-- 收款码区域 -->
+        <div id="paymentQRCode" class="hidden text-center">
+          <h4 class="font-medium text-neutral-700 mb-4">请选择支持方式：</h4>
+          <img
+            src="https://deskpad.oss-cn-shanghai.aliyuncs.com/_sitefiles/donationimages/388875_20250722_034754_%E8%B5%9E%E8%B5%8F%E7%A0%81%E9%A1%B5%E9%9D%A2.jpg"
+            alt="收款码" class="w-full max-w-xs mx-auto rounded-lg shadow-md">
+        </div>
+
+        <!-- 打赏名单 -->
+        <div class="mt-6">
+          <h4 class="font-medium text-neutral-700 mb-2">打赏感谢名单：</h4>
+          <div class="bg-neutral-50 rounded-lg p-4 max-h-32 overflow-y-auto">
+            <ul class="space-y-2 text-sm text-neutral-600">
+              <li class="flex justify-between items-center"><span>匿名用户</span><span
+                  class="text-xs text-neutral-400">送了一杯可乐 (3币)</span></li>
+              <li class="flex justify-between items-center"><span>李*明</span><span
+                  class="text-xs text-neutral-400">加了一只鸡腿 (10币)</span></li>
+              <li class="flex justify-between items-center"><span>张**</span><span
+                  class="text-xs text-neutral-400">送了一杯可乐 (3币)</span></li>
+              <li class="flex justify-between items-center"><span>微信用户_9527</span><span
+                  class="text-xs text-neutral-400">加了一只鸡腿 (10币)</span></li>
+              <li class="flex justify-between items-center"><span>支付宝用户</span><span
+                  class="text-xs text-neutral-400">送了一杯可乐 (3币)</span></li>
+              <li class="flex justify-between items-center"><span>爱喝咖啡的猫</span><span
+                  class="text-xs text-neutral-400">加了一只鸡腿 (10币)</span></li>
+              <li class="flex justify-between items-center"><span>匿名</span><span class="text-xs text-neutral-400">送了一杯可乐
+                  (3币)</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入twikoo评论系统 -->
+  <script src="https://cdn.jsdelivr.net/npm/twikoo@1.6.32/dist/twikoo.all.min.js"></script>
+
 </body>
 
 </html>

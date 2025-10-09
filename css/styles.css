@@ -577,7 +577,7 @@ header {
 
 /* 详情页预览容器 - 基础样式已在HTML中通过Tailwind类实现 */
 /* 仅保留这个空类以避免选择器错误，但样式已在HTML中通过Tailwind实现 */
-.detail-preview-container { }
+.detail-preview-container {}
 
 .detail-icon-container {
   width: 160px;
