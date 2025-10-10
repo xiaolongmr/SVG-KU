@@ -27,20 +27,20 @@ class SettingsManager {
     // 加载保存的设置
     this.loadSettings();
   }
-  
+
   // 确保URL包含cdn参数，如果没有则自动添加
   ensureCdnParam() {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      
+
       // 如果URL中已经包含cdn参数，不需要重定向
       if (urlParams.has('cdn')) {
         return;
       }
-      
+
       // 获取当前设置的CDN URL或默认CDN URL
       let currentCdnUrl = this.defaultSettings.iconCdnUrl;
-      
+
       // 尝试从本地存储获取设置（如果存在）
       try {
         const savedSettings = localStorage.getItem('iconLibrarySettings');
@@ -51,22 +51,22 @@ class SettingsManager {
       } catch (e) {
         console.warn('无法加载保存的设置，使用默认CDN:', e);
       }
-      
+
       // 从CDN URL中提取cdn参数值
       // 例如从 'https://cdn2.codesign.qq.com/icons/rz0WOY47RrQkP0W/latest/iconfont.js' 中提取 'rz0WOY47RrQkP0W'
       const cdnMatch = currentCdnUrl.match(/\/icons\/([^\/]+)\//);
       let cdnParam = 'rz0WOY47RrQkP0W'; // 默认值
-      
+
       if (cdnMatch && cdnMatch[1]) {
         cdnParam = cdnMatch[1];
       }
-      
+
       // 添加cdn参数到URL
       urlParams.set('cdn', cdnParam);
-      
+
       // 构建新的URL
       const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
-      
+
       // 重定向到新URL
       console.log(`URL中没有cdn参数，自动添加并跳转: ${newUrl}`);
       window.location.replace(newUrl);
@@ -103,7 +103,26 @@ class SettingsManager {
 
     // 保存和重置设置按钮
     this.saveSettingsBtn?.addEventListener('click', () => this.saveSettings());
-    this.resetSettingsBtn?.addEventListener('click', () => this.showResetConfirmation());
+      this.resetSettingsBtn?.addEventListener('click', () => this.showResetConfirmation());
+
+      // 绑定自定义确认对话框事件
+      this.confirmOkBtn = document.getElementById('confirmOkBtn');
+      this.confirmCancelBtn = document.getElementById('confirmCancelBtn');
+      this.confirmModal = document.getElementById('customConfirmModal');
+      this.confirmTitle = document.getElementById('confirmTitle');
+      this.confirmMessage = document.getElementById('confirmMessage');
+
+      this.confirmOkBtn?.addEventListener('click', () => this.handleConfirmOk());
+      this.confirmCancelBtn?.addEventListener('click', () => this.hideConfirmModal());
+
+      // 点击确认对话框外部关闭
+      this.confirmModal?.addEventListener('click', (e) => {
+        if (e.target === this.confirmModal) this.hideConfirmModal();
+      });
+
+      // 阻止点击确认对话框内容时关闭
+      const confirmModalContent = this.confirmModal?.querySelector('div');
+      confirmModalContent?.addEventListener('click', (e) => e.stopPropagation());
 
     // 点击模态框外部关闭
     this.settingsModal?.addEventListener('click', (e) => {
@@ -118,28 +137,8 @@ class SettingsManager {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         this.hideSettingsModal();
-        this.hideConfirmModal();
       }
     });
-
-    // 绑定自定义确认对话框事件
-    this.confirmOkBtn = document.getElementById('confirmOkBtn');
-    this.confirmCancelBtn = document.getElementById('confirmCancelBtn');
-    this.confirmModal = document.getElementById('customConfirmModal');
-    this.confirmTitle = document.getElementById('confirmTitle');
-    this.confirmMessage = document.getElementById('confirmMessage');
-
-    this.confirmOkBtn?.addEventListener('click', () => this.handleConfirmOk());
-    this.confirmCancelBtn?.addEventListener('click', () => this.hideConfirmModal());
-
-    // 点击确认对话框外部关闭
-    this.confirmModal?.addEventListener('click', (e) => {
-      if (e.target === this.confirmModal) this.hideConfirmModal();
-    });
-
-    // 阻止点击确认对话框内容时关闭
-    const confirmModalContent = this.confirmModal?.querySelector('div');
-    confirmModalContent?.addEventListener('click', (e) => e.stopPropagation());
   }
 
   // 显示设置模态框
@@ -163,7 +162,7 @@ class SettingsManager {
       modalContent.classList.remove('scale-100');
       modalContent.classList.add('scale-95');
     }
-    
+
     // 延迟隐藏模态框，等待动画完成
     setTimeout(() => {
       this.settingsModal.classList.add('opacity-0', 'pointer-events-none');
@@ -203,27 +202,27 @@ class SettingsManager {
     // 关闭模态框
     this.hideSettingsModal();
   }
-  
+
   // 更新URL中的cdn参数
   updateUrlCdnParam(newCdnUrl) {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      
+
       // 从新的CDN URL中提取cdn参数值
       const cdnMatch = newCdnUrl.match(/\/icons\/([^\/]+)\//);
       let cdnParam = 'rz0WOY47RrQkP0W'; // 默认值
-      
+
       if (cdnMatch && cdnMatch[1]) {
         cdnParam = cdnMatch[1];
       }
-      
+
       // 更新cdn参数值
       if (urlParams.get('cdn') !== cdnParam) {
         urlParams.set('cdn', cdnParam);
-        
+
         // 构建新的URL
         const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
-        
+
         // 重定向到新URL
         console.log(`更新URL中的cdn参数: ${newUrl}`);
         window.location.replace(newUrl);
@@ -236,8 +235,10 @@ class SettingsManager {
   // 显示重置确认对话框
   showResetConfirmation() {
     // 设置确认对话框内容
-    this.confirmTitle.textContent = '确认重置设置';
-    this.confirmMessage.textContent = '确定要重置所有设置吗？这将恢复为默认值。';
+    if (this.confirmTitle && this.confirmMessage) {
+      this.confirmTitle.textContent = '重置设置';
+      this.confirmMessage.textContent = '确定要重置所有设置吗？这将恢复为默认值。';
+    }
     
     // 显示确认对话框
     this.showConfirmModal();

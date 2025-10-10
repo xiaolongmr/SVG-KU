@@ -108,22 +108,22 @@
     </div>
   </header>
 
-  <!-- 自定义确认对话框 -->
-  <div id="customConfirmModal"
-    class="fixed inset-0 bg-black/50 z-60 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-200">
-    <div
-      class="bg-white rounded-xl p-6 max-w-md w-full shadow-xl transform scale-95 transition-transform duration-200">
-      <div class="mb-6">
-        <h3 class="text-xl font-bold mb-3" id="confirmTitle">确认操作</h3>
-        <p class="text-gray-600" id="confirmMessage">确定要执行此操作吗？</p>
+  <!-- 自定义确认弹窗 -->
+  <div id="customConfirmModal" 
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-200">
+    <div 
+      class="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl transform scale-95 transition-transform duration-200">
+      <div class="text-center mb-6">
+        <h3 id="confirmTitle" class="text-xl font-bold mb-2">确认操作</h3>
+        <p id="confirmMessage" class="text-gray-600">确定要执行此操作吗？</p>
       </div>
-      <div class="flex justify-end gap-4">
-        <button id="confirmCancelBtn"
-          class="px-4 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-100 transition-all duration-200 text-neutral-700">
+      <div class="flex justify-center space-x-4">
+        <button id="confirmCancelBtn" 
+          class="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 text-gray-700 font-medium">
           取消
         </button>
-        <button id="confirmOkBtn"
-          class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all duration-200 shadow-sm hover:shadow">
+        <button id="confirmOkBtn" 
+          class="px-6 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition-all duration-200 text-white font-medium">
           确定
         </button>
       </div>
