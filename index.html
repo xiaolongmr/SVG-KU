@@ -20,6 +20,7 @@
      -->
   <link href="https://font.onmicrosoft.cn/font6pro@6.7.1/css/all.min.css" rel="stylesheet">
 
+
   <!-- 文件操作相关库 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- 用于文件压缩 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> <!-- 用于文件保存 -->
@@ -107,28 +108,6 @@
       </div>
     </div>
   </header>
-
-  <!-- 自定义确认弹窗 -->
-  <div id="customConfirmModal" 
-    class="fixed inset-0 bg-black/50 z-60 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-200">
-    <div 
-      class="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl transform scale-95 transition-transform duration-200">
-      <div class="text-center mb-6">
-        <h3 id="confirmTitle" class="text-xl font-bold mb-2">确认操作</h3>
-        <p id="confirmMessage" class="text-gray-600">确定要执行此操作吗？</p>
-      </div>
-      <div class="flex justify-center space-x-4">
-        <button id="confirmCancelBtn" 
-          class="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 text-gray-700 font-medium">
-          取消
-        </button>
-        <button id="confirmOkBtn" 
-          class="px-6 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition-all duration-200 text-white font-medium">
-          确定
-        </button>
-      </div>
-    </div>
-  </div>
 
   <!-- 设置模态框 -->
   <div id="settingsModal"
@@ -298,14 +277,14 @@
       <i class="fa fa-angle-right text-xl"></i>
     </button>
     <div
-      class="bg-white rounded-xl shadow-xl max-w-5xl w-full mx-4 transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
+      class="bg-white rounded-xl shadow-xl max-w-5xl w-full transform scale-95 transition-basic max-h-[90vh] overflow-y-auto">
       <!-- 模态框标题栏 -->
       <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
         <div class="flex items-center">
           <h3 class="text-lg font-semibold" id="modalTitle">图标详情</h3>
           <button id="copyUrlBtn"
-            class="text-neutral-400 hover:text-neutral-600 transition-all duration-200 flex items-center text-sm px-3 py-1 rounded-full">
-            <i class="fa-solid fa-link-simple text-[1.9em] hover:text-primary"></i>
+            class="text-neutral-400 hover:text-primary transition-all duration-200 flex items-center text-sm px-3 py-1 rounded-full">
+            <i class="fa-solid fa-link-simple text-[1.9em]"></i>
             <span class="hidden sm:inline">复制链接</span>
           </button>
         </div>
@@ -326,10 +305,20 @@
               <div class="flex-1 flex items-center justify-center rounded-lg p-4 relative">
                 <div id="modalIconPreview" class="flex items-center justify-center"></div>
               </div>
+              <button id="iconAdjustBtn"
+                class="absolute bottom-2 left-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200"
+                title="调整图标">
+                <i class="fa-solid fa-sliders text-[1.5em]"></i>
+              </button>
               <button id="resetIconPositionBtn"
-                class="absolute bottom-2 left-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200 opacity-0 pointer-events-none"
+                class="absolute bottom-2 left-12 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200 opacity-0 pointer-events-none"
                 title="返回中心点">
                 <i class="fa-solid fa-crosshairs text-[1.5em]"></i>
+              </button>
+              <button id="toggleFullscreenBtn"
+                class="absolute bottom-12 right-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200 opacity-0 pointer-events-none"
+                title="全屏预览">
+                <i class="fa-solid fa-expand text-[1.5em] hover:text-primary"></i>
               </button>
               <button id="changeBackgroundColorBtn"
                 class="absolute bottom-2 right-2 flex items-center w-8 h-8 justify-center text-neutral-500 hover:text-primary transition-all duration-200"
@@ -338,6 +327,70 @@
                 <i class="fa-solid fa-game-board text-[1.5em] hover:text-primary"></i>
               </button>
             </div>
+            <!-- 图标调整面板 -->
+            <div id="iconAdjustPanel" class="hidden mt-3">
+              <h3 class="text-sm font-medium mb-2 flex items-center"><i
+                  class="fa-solid fa-sliders-simple text-blue-500 mr-2"></i>图标调整<span id="iconResetBtn"
+                  class="hidden ml-[10px] text-xs text-primary cursor-pointer hover:text-blue-300">Reset</span></h3>
+
+              <!-- 旋转控制 -->
+              <div class="mb-3">
+                <label class="block text-xs text-gray-500 mb-1">旋转角度</label>
+                <div class="flex gap-2">
+                  <button id="resetRotationBtn"
+                    class="px-3 py-1 border border-neutral-200 rounded-md bg-gray-100 hover:border-gray-400 hover:bg-gray-200 transition-basic text-sm flex items-center justify-center"
+                    title="重置旋转角度">
+                    <i class="fa-solid fa-ban"></i>
+                  </button>
+                  <button
+                    class="rotate-btn px-3 py-1 border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                    data-angle="45">45°</button>
+                  <button
+                    class="rotate-btn px-3 py-1 border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                    data-angle="90">90°</button>
+                  <button
+                    class="rotate-btn px-3 py-1 border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm"
+                    data-angle="180">180°</button>
+                  <div class="relative flex-1">
+                    <input type="number" id="customRotateInput"
+                      class="w-full px-3 py-1 border border-neutral-200 rounded-md text-sm" placeholder="自定义" min="-360"
+                      max="360">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">°</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 镜像控制 -->
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">镜像方式</label>
+                <div class="flex gap-2">
+                  <button id="resetMirrorBtn"
+                    class="px-3 py-1 border border-neutral-200 rounded-md bg-gray-100 hover:border-gray-400 hover:bg-gray-200 transition-basic text-sm flex items-center justify-center"
+                    title="重置镜像方式">
+                    <i class="fa-solid fa-ban"></i>
+                  </button>
+                  <button
+                    class="mirror-btn flex-1 py-1 h-[30px] border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm flex items-center justify-center"
+                    data-mirror="horizontal">
+                    <i class="fa-solid fa-reflect-horizontal"></i>
+                    <span hidden>水平</span>
+                  </button>
+                  <button
+                    class="mirror-btn flex-1 py-1 h-[30px] border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm flex items-center justify-center"
+                    data-mirror="vertical">
+                    <i class="fa-solid fa-reflect-vertical"></i>
+                    <span hidden>垂直</span>
+                  </button>
+                  <button
+                    class="mirror-btn flex-1 py-1 h-[30px] border border-neutral-200 rounded-md hover:border-primary hover:bg-primary/5 transition-basic text-sm flex items-center justify-center"
+                    data-mirror="both">
+                    <i class="fa-solid fa-reflect-both"></i>
+                    <span hidden>水平垂直</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <h3 class="text-black text-sm font-medium mt-3 mb-1 flex items-center gap-2">
               <i class="fa-solid fa-lightbulb text-amber-500"></i> 操作小Tips
             </h3>

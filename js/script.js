@@ -56,7 +56,26 @@ let currentSvgCode = ''; // 存储当前显示的原始SVG代码
 // 全局变量
 let allIcons = [];
 let currentIcon = null;
-let currentIconColor = '#409eff';
+// 获取图标的原始主颜色
+function getIconOriginalColor(icon) {
+  if (!icon || !icon.paths || icon.paths.length === 0) {
+    return '#409eff'; // 仅在完全无法获取原始颜色时使用蓝色作为后备
+  }
+  
+  // 优先使用第一个有颜色的路径的填充色或描边色
+  for (const path of icon.paths) {
+    if (path.fill && path.fill !== 'none' && path.fill !== 'transparent' && path.fill.startsWith('#')) {
+      return path.fill;
+    }
+    if (path.stroke && path.stroke !== 'none' && path.stroke !== 'transparent' && path.stroke.startsWith('#')) {
+      return path.stroke;
+    }
+  }
+  
+  return '#409eff'; // 后备颜色
+}
+
+let currentIconColor = ''; // 初始为空，将在使用时从图标原始属性获取
 let originalIconColors = new Map();
 let iconColors = new Map();
 let pathColors = new Map();
@@ -487,7 +506,8 @@ function createIconItem(icon) {
   container.dataset.iconId = icon.id;
 
   const group = getIconGroup(icon.originalNameWithoutPrefix);
-  const iconColor = iconColors.get(icon.id) || '#409eff';
+  // 使用图标当前颜色或默认获取图标原始颜色
+    const iconColor = iconColors.get(icon.id) || getIconOriginalColor(icon);
   originalIconColors.set(icon.id, iconColor);
 
   // 创建SVG包装器
@@ -568,7 +588,7 @@ function updateIconItemColor(container, iconId) {
   const svgElement = container.querySelector('.icon-svg-element');
   if (!svgElement) return;
 
-  const color = iconColors.get(iconId) || '#409eff';
+  const color = iconColors.get(iconId) || getIconOriginalColor(currentIcon);
   const pathMap = pathColors.get(iconId);
   const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
 
@@ -728,7 +748,7 @@ function applyRandomColors() {
 function resetAllColors() {
   document.querySelectorAll('.icon-display-container').forEach(container => {
     const iconId = container.dataset.iconId;
-    const defaultColor = originalIconColors.get(iconId) || '#409eff';
+    const defaultColor = originalIconColors.get(iconId) || getIconOriginalColor(currentIcon);
     iconColors.set(iconId, defaultColor);
     // 清除路径颜色映射
     pathColors.delete(iconId);
@@ -912,7 +932,7 @@ function openIconDetail(icon) {
   if (!iconModal) return;
 
   currentIcon = icon;
-  currentIconColor = iconColors.get(icon.id) || '#409eff';
+  currentIconColor = iconColors.get(icon.id) || getIconOriginalColor(icon);
 
   // 初始化自定义颜色选择器
   if (window.ColorManager) {
@@ -1706,7 +1726,7 @@ function updateIconColor(color, isReset = false) {
 function resetIconColor() {
   if (!currentIcon) return;
 
-  const originalColor = originalIconColors.get(currentIcon.id) || '#409eff';
+  const originalColor = originalIconColors.get(currentIcon.id) || getIconOriginalColor(currentIcon);
   updateIconColor(originalColor, true);
 
   // 清除路径颜色映射
@@ -1840,14 +1860,14 @@ async function psSendSelectedIcons() {
         const elements = tempSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
 
         elements.forEach((element, index) => {
-          const pathColor = pathMap.get(index) || '#409eff';
+          const pathColor = pathMap.get(index) || getIconOriginalColor(currentIcon);
           element.setAttribute('fill', pathColor); // 允许设置真正的白色
           element.setAttribute('stroke', pathColor); // 允许设置真正的白色
         });
 
         svgCodeWithColors = new XMLSerializer().serializeToString(tempSvg);
       } else {
-        const color = iconColors.get(icon.id) || '#409eff';
+        const color = iconColors.get(icon.id) || getIconOriginalColor(icon);
         svgCodeWithColors = svgCodeWithColors.replace(/fill="[^"]*"/g, `fill="${color}"`);
         svgCodeWithColors = svgCodeWithColors.replace(/stroke="[^"]*"/g, `stroke="${color}"`);
       }

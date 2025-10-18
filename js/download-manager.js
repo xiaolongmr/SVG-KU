@@ -98,7 +98,7 @@ function downloadPNG(icon, svgCode, size = 512, filename = null) {
     // 移除固定宽高设置，让viewBox和preserveAspectRatio控制比例
     processedSvgCode = processedSvgCode.replace(/width=["'][^"']*["']/g, '');
     processedSvgCode = processedSvgCode.replace(/height=["'][^"']*["']/g, '');
-    
+
     // 确保添加preserveAspectRatio属性
     if (!processedSvgCode.includes('preserveAspectRatio=')) {
       processedSvgCode = processedSvgCode.replace('<svg', '<svg preserveAspectRatio="xMidYMid meet"');

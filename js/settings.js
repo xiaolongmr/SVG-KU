@@ -103,26 +103,7 @@ class SettingsManager {
 
     // 保存和重置设置按钮
     this.saveSettingsBtn?.addEventListener('click', () => this.saveSettings());
-      this.resetSettingsBtn?.addEventListener('click', () => this.showResetConfirmation());
-
-      // 绑定自定义确认对话框事件
-      this.confirmOkBtn = document.getElementById('confirmOkBtn');
-      this.confirmCancelBtn = document.getElementById('confirmCancelBtn');
-      this.confirmModal = document.getElementById('customConfirmModal');
-      this.confirmTitle = document.getElementById('confirmTitle');
-      this.confirmMessage = document.getElementById('confirmMessage');
-
-      this.confirmOkBtn?.addEventListener('click', () => this.handleConfirmOk());
-      this.confirmCancelBtn?.addEventListener('click', () => this.hideConfirmModal());
-
-      // 点击确认对话框外部关闭
-      this.confirmModal?.addEventListener('click', (e) => {
-        if (e.target === this.confirmModal) this.hideConfirmModal();
-      });
-
-      // 阻止点击确认对话框内容时关闭
-      const confirmModalContent = this.confirmModal?.querySelector('div');
-      confirmModalContent?.addEventListener('click', (e) => e.stopPropagation());
+    this.resetSettingsBtn?.addEventListener('click', () => this.resetSettings());
 
     // 点击模态框外部关闭
     this.settingsModal?.addEventListener('click', (e) => {
@@ -232,77 +213,22 @@ class SettingsManager {
     }
   }
 
-  // 显示重置确认对话框
-  showResetConfirmation() {
-    // 设置确认对话框内容
-    if (this.confirmTitle && this.confirmMessage) {
-      this.confirmTitle.textContent = '重置设置';
-      this.confirmMessage.textContent = '确定要重置所有设置吗？这将恢复为默认值。';
-    }
-    
-    // 显示确认对话框
-    this.showConfirmModal();
-  }
-
-  // 显示确认对话框
-  showConfirmModal() {
-    if (this.confirmModal) {
-      // 显示模态框
-      this.confirmModal.classList.remove('opacity-0', 'pointer-events-none');
-      const modalContent = this.confirmModal.querySelector('div');
-      if (modalContent) {
-        modalContent.classList.remove('scale-95');
-        modalContent.classList.add('scale-100');
-      }
-
-      // 防止背景滚动
-      document.body.style.overflow = 'hidden';
-    }
-  }
-
-  // 隐藏确认对话框
-  hideConfirmModal() {
-    if (this.confirmModal) {
-      // 隐藏模态框
-      this.confirmModal.classList.add('opacity-0', 'pointer-events-none');
-      const modalContent = this.confirmModal.querySelector('div');
-      if (modalContent) {
-        modalContent.classList.remove('scale-100');
-        modalContent.classList.add('scale-95');
-      }
-
-      // 恢复背景滚动
-      document.body.style.overflow = '';
-    }
-  }
-
-  // 处理确认按钮点击
-  handleConfirmOk() {
-    // 隐藏确认对话框
-    this.hideConfirmModal();
-    
-    // 执行重置操作
-    this.performResetSettings();
-  }
-
-  // 执行重置设置操作
-  performResetSettings() {
-    // 清除本地存储
-    localStorage.removeItem('iconLibrarySettings');
-
-    // 应用默认设置
-    this.applySettings(this.defaultSettings);
-
-    // 更新表单
-    this.updateFormFields();
-
-    // 显示重置成功提示
-    window.IconLibrary?.showToast('设置已重置为默认值');
-  }
-
-  // 重置设置（保持兼容性，但现在调用showResetConfirmation）
+  // 重置设置
   resetSettings() {
-    this.showResetConfirmation();
+    // 确认重置
+    if (confirm('确定要重置所有设置吗？这将恢复为默认值。')) {
+      // 清除本地存储
+      localStorage.removeItem('iconLibrarySettings');
+
+      // 应用默认设置
+      this.applySettings(this.defaultSettings);
+
+      // 更新表单
+      this.updateFormFields();
+
+      // 显示重置成功提示
+      window.IconLibrary?.showToast('设置已重置为默认值');
+    }
   }
 
   // 获取设置（从本地存储或默认值）

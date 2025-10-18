@@ -7,9 +7,12 @@
 // 当前选中的图标对象，存储图标完整信息（ID、名称、SVG代码等）
 let currentIcon = null;
 
-// 当前图标使用的主颜色，默认蓝色#409eff
+// 是否处于全屏预览模式（全局变量，供多个函数访问）
+let isFullscreenMode = false;
+
+// 当前图标使用的主颜色，初始为空，将在使用时从图标原始属性获取
 // 这个颜色会应用到图标整体或单个路径
-let currentIconColor = '#409eff';
+let currentIconColor = '';
 
 // Map对象，存储每个图标的整体颜色设置
 // 键为图标ID，值为对应的颜色值
@@ -25,6 +28,25 @@ let selectedPathIndex = -1;
 
 // 多路径选择集合，用于存储多个选中的路径索引
 // 支持多选功能时使用
+
+// 获取图标的原始主颜色
+function getIconOriginalColor(icon) {
+  if (!icon || !icon.paths || icon.paths.length === 0) {
+    return '#409eff'; // 仅在完全无法获取原始颜色时使用蓝色作为后备
+  }
+
+  // 优先使用第一个有颜色的路径的填充色或描边色
+  for (const path of icon.paths) {
+    if (path.fill && path.fill !== 'none' && path.fill !== 'transparent' && path.fill.startsWith('#')) {
+      return path.fill;
+    }
+    if (path.stroke && path.stroke !== 'none' && path.stroke !== 'transparent' && path.stroke.startsWith('#')) {
+      return path.stroke;
+    }
+  }
+
+  return '#409eff'; // 后备颜色
+}
 let selectedPaths = new Set();
 
 // 记录通过详情页面修改过颜色的图标ID（高优先级）
@@ -163,6 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化背景颜色切换功能
     initBackgroundColorChanger();
+    // 初始化全屏预览功能
+    initFullscreenPreview();
 
     // 检查URL参数中是否包含icon id，如果包含则打开对应图标详情
     checkUrlForIconId();
@@ -1033,7 +1057,7 @@ function initializeEventListeners() {
 
           // 更新全局状态
           pathColors.set(currentIcon.id, pathColorsMap)
-          
+
           // 更新URL参数，确保颜色变化反映在URL中
           updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
           iconColors.delete(currentIcon.id); // 清除整体颜色
@@ -1399,6 +1423,8 @@ function checkUrlForIconId() {
   const urlParams = new URLSearchParams(window.location.search);
   const iconId = urlParams.get('id');
   const colorParam = urlParams.get('color');
+  const rotateParam = urlParams.get('rotate');
+  const mirrorParam = urlParams.get('mirror');
 
   if (iconId) {
     console.log(`检测到URL中的图标ID: ${iconId}`);
@@ -1408,17 +1434,31 @@ function checkUrlForIconId() {
       // 这样当页面元素加载完成后，主页图标颜色就能正确显示
       preloadColorFromUrlParam(iconId, colorParam);
     }
-    
+    if (rotateParam) {
+      console.log(`检测到URL中的旋转参数: ${rotateParam}`);
+      // 设置全局旋转变量
+      window.currentIconRotation = parseInt(rotateParam) || 0;
+    }
+    if (mirrorParam) {
+      console.log(`检测到URL中的镜像参数: ${mirrorParam}`);
+      // 解析镜像参数并设置全局镜像变量
+      const mirrorParts = mirrorParam.split(',');
+      if (mirrorParts.length === 2) {
+        window.currentIconMirrorX = parseInt(mirrorParts[0]) || 1;
+        window.currentIconMirrorY = parseInt(mirrorParts[1]) || 1;
+      }
+    }
+
     // 增加尝试次数和延迟时间，确保SVG资源有足够时间加载
     let attemptCount = 0;
     const maxAttempts = 5;
-    
+
     function tryFindIcon() {
       attemptCount++;
-      
+
       // 首先尝试从已加载的图标中查找
       let targetIcon = allIcons.find(icon => icon.id === iconId);
-      
+
       // 如果在已加载的图标中找不到，则直接从SVG symbols中查找
       if (!targetIcon) {
         const svgContainer = document.querySelector('svg');
@@ -1428,7 +1468,7 @@ function checkUrlForIconId() {
             // 确保创建完整的图标对象，包含所有必要属性
             const content = symbol.innerHTML;
             const svgCode = `<svg viewBox="${symbol.getAttribute('viewBox') || '0 0 1024 1024'}" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
-            
+
             targetIcon = {
               id: symbol.id,
               originalNameWithoutPrefix: symbol.id,
@@ -1441,46 +1481,46 @@ function checkUrlForIconId() {
           }
         }
       }
-      
+
       if (targetIcon) {
         console.log(`找到匹配的图标: ${targetIcon.id}`);
-        
+
         // 先检查页面上是否已经有这个图标的DOM元素
         const homeIconElement = document.querySelector(`.icon-display-container[data-icon-id="${iconId}"]`);
-        
+
         if (!homeIconElement && hasMoreItems) {
           // 如果页面上没有DOM元素且还有更多图标可加载，开始加载更多图标直到找到
           console.log(`URL中的图标 ${iconId} 不在当前页面DOM中，开始预加载`);
-          
+
           const preloadForIconDetail = async () => {
             let loadAttempts = 0;
             const maxLoadAttempts = 20;
-            
+
             while (loadAttempts < maxLoadAttempts && hasMoreItems) {
               loadAttempts++;
-              
+
               // 加载更多图标
               loadMoreIcons();
-              
+
               // 等待加载完成
               await new Promise(resolve => setTimeout(resolve, 1000));
-              
+
               // 检查图标是否已加载到页面上
               if (document.querySelector(`.icon-display-container[data-icon-id="${iconId}"]`)) {
                 console.log(`预加载成功，图标 ${iconId} 已加载到页面`);
                 break;
               }
             }
-            
+
             // 无论是否找到，都打开图标详情（openIconDetail函数会处理滚动）
-            openIconDetail(targetIcon, colorParam);
+            openIconDetail(targetIcon, colorParam, rotateParam, mirrorParam);
           };
-          
+
           // 开始预加载过程
           preloadForIconDetail();
         } else {
           // 直接打开图标详情
-          openIconDetail(targetIcon, colorParam);
+          openIconDetail(targetIcon, colorParam, rotateParam, mirrorParam);
         }
       } else if (attemptCount < maxAttempts) {
         // 如果未找到图标且尝试次数未达上限，继续尝试
@@ -1490,13 +1530,13 @@ function checkUrlForIconId() {
         showToast(`未找到ID为${iconId}的图标`, false);
       }
     }
-    
+
     // 开始尝试查找图标
     setTimeout(tryFindIcon, 500);
   }
 }
 
-// 更新URL中的图标ID和颜色参数，不添加到浏览器历史记录
+// 更新URL中的图标ID、颜色、旋转角度和镜像参数，不添加到浏览器历史记录
 function updateUrlWithIconInfo(iconId, colorString) {
   const urlParams = new URLSearchParams(window.location.search);
   urlParams.set('id', iconId);
@@ -1504,6 +1544,22 @@ function updateUrlWithIconInfo(iconId, colorString) {
     urlParams.set('color', colorString);
   } else {
     urlParams.delete('color');
+  }
+
+  // 添加旋转角度参数
+  if (window.currentIconRotation && window.currentIconRotation !== 0) {
+    urlParams.set('rotate', window.currentIconRotation);
+  } else {
+    urlParams.delete('rotate');
+  }
+
+  // 添加镜像参数
+  // 将mirrorX和mirrorY组合成一个字符串，如"-1,1"表示只有水平镜像
+  const mirrorValue = `${window.currentIconMirrorX},${window.currentIconMirrorY}`;
+  if (mirrorValue !== "1,1") {
+    urlParams.set('mirror', mirrorValue);
+  } else {
+    urlParams.delete('mirror');
   }
 
   // 构建新的URL
@@ -1517,12 +1573,18 @@ function updateUrlWithIconInfo(iconId, colorString) {
 function removeIconIdFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
 
-  // 移除id和color参数
+  // 移除所有图标相关参数
   if (urlParams.has('id')) {
     urlParams.delete('id');
   }
   if (urlParams.has('color')) {
     urlParams.delete('color');
+  }
+  if (urlParams.has('rotate')) {
+    urlParams.delete('rotate');
+  }
+  if (urlParams.has('mirror')) {
+    urlParams.delete('mirror');
   }
 
   // 构建新的URL
@@ -1541,39 +1603,49 @@ function preloadColorFromUrlParam(iconId, colorParam) {
     if (pathColors.has(iconId)) {
       pathColors.delete(iconId);
     }
-    
-    // 解析color参数，格式如"1#fffff,2#ff0000"
-    const colorSegments = colorParam.split(',');
-    
+
     // 检查是否为单个路径颜色或整体颜色
-    if (colorSegments.length === 1 && colorSegments[0].startsWith('#')) {
+    if (colorParam.startsWith('#')) {
       // 整体颜色格式: #123456
-      const color = colorSegments[0];
+      const color = colorParam;
       iconColors.set(iconId, color);
       console.log(`预加载整体颜色: ${color} 到图标 ${iconId}`);
     } else {
-      // 路径颜色格式: 0#123456,1#654321
+      // 路径颜色格式: 0#123456,1,2#654321 或 1,2#123456,3#654321
       const pathColorMap = new Map();
       let hasPathColors = false;
-      
-      // 预加载路径颜色，减少日志输出
-        colorSegments.forEach(segment => {
-          const match = segment.match(/^(\d+)#([0-9a-fA-F]{6})$/);
-          if (match) {
-            const pathIndex = parseInt(match[1]);
-            const color = `#${match[2]}`;
-            pathColorMap.set(pathIndex, color);
-            hasPathColors = true;
+
+      // 使用正则表达式全局匹配所有的路径-颜色对
+      // 匹配格式如: 1#123456 或 1,2#123456
+      const matches = colorParam.match(/(?:^|,)([\d,]+)#([0-9a-fA-F]{6})/g);
+
+      if (matches) {
+        matches.forEach(match => {
+          // 移除开头可能的逗号
+          const cleanMatch = match.startsWith(',') ? match.slice(1) : match;
+          // 分割路径索引和颜色值
+          const parts = cleanMatch.split('#');
+          if (parts.length === 2) {
+            const pathIndicesStr = parts[0];
+            const color = `#${parts[1]}`;
+
+            // 处理多个路径索引（用逗号分隔）
+            const pathIndices = pathIndicesStr.split(',').map(index => parseInt(index));
+            pathIndices.forEach(pathIndex => {
+              pathColorMap.set(pathIndex, color);
+              hasPathColors = true;
+            });
           }
         });
-        console.log(`预加载图标 ${iconId} 的 ${pathColorMap.size} 个路径颜色`);
-      
+      }
+      console.log(`预加载图标 ${iconId} 的 ${pathColorMap.size} 个路径颜色`);
+
       // 如果有路径颜色，保存
       if (hasPathColors) {
         pathColors.set(iconId, pathColorMap);
       }
     }
-    
+
     // 尝试立即更新主页图标颜色
     // 如果此时DOM还未完全加载，这个更新可能会失败，但稍后渲染时会再次应用
     setTimeout(() => {
@@ -1593,18 +1665,18 @@ function updateHomeIconColorFromUrl(iconId) {
     // console.warn(`未找到主页图标 ${iconId}`);
     return;
   }
-  
+
   // 查找主页图标中的SVG元素
   let homeIconSvg = homeIconContainer.querySelector('.icon-svg-element');
   if (!homeIconSvg) {
     homeIconSvg = homeIconContainer.querySelector('svg');
   }
-  
+
   if (homeIconSvg) {
     // 应用已保存的颜色设置
     const iconColor = iconColors.get(iconId);
     const pathColorMap = pathColors.get(iconId);
-    
+
     if (pathColorMap && pathColorMap.size > 0) {
       // 如果有路径级别的颜色设置
       const elements = homeIconSvg.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
@@ -1640,64 +1712,84 @@ function updateHomeIconColorFromUrl(iconId) {
 // 从预览图标SVG元素直接获取颜色字符串表示
 function getCurrentIconColorString() {
   if (!currentIcon) return '';
-  
+
   // 获取预览区域中的SVG元素
   const modalIconPreview = document.getElementById('modalIconPreview');
   if (!modalIconPreview) return '';
-  
+
   // 查找SVG元素
   const svgElement = modalIconPreview.querySelector('svg');
   if (!svgElement) return '';
-  
+
   // 获取所有有颜色的路径和形状元素
   const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
   if (elements.length === 0) return '';
-  
-  // 检查所有元素是否有相同的颜色（整体颜色）
-  let allSameColor = true;
-  let firstColor = null;
-  const pathColors = [];
-  
+
+  const colorToPathIndices = new Map(); // 颜色到路径索引的映射，用于优化相同颜色的路径表示
+
   elements.forEach((element, index) => {
     // 获取填充颜色，如果没有填充则尝试获取描边颜色
     let color = element.getAttribute('fill');
     if (!color || color === 'none') {
       color = element.getAttribute('stroke');
     }
-    
-    // 如果找到颜色并且是有效的十六进制颜色格式
-    if (color && color.startsWith('#')) {
-      pathColors.push({ index, color });
-      
-      // 检查是否所有元素颜色相同
-      if (firstColor === null) {
-        firstColor = color;
-      } else if (firstColor !== color) {
-        allSameColor = false;
+
+    // 获取原始颜色（从currentIcon中获取，而不是使用硬编码的默认颜色）
+    let originalColor = '';
+    if (currentIcon.paths && currentIcon.paths[index]) {
+      originalColor = currentIcon.paths[index].fill || currentIcon.paths[index].stroke || '';
+    }
+
+    // 如果找到颜色并且是有效的十六进制颜色格式，且与原始颜色不同
+    if (color && color.startsWith('#') && color !== originalColor) {
+      // 将路径索引添加到对应颜色的数组中
+      if (!colorToPathIndices.has(color)) {
+        colorToPathIndices.set(color, []);
       }
+      colorToPathIndices.get(color).push(index);
     }
   });
-  
-  // 如果所有元素颜色相同，使用整体颜色格式
-  if (allSameColor && firstColor && firstColor !== '#409eff') {
-    return firstColor;
+
+  // 如果没有修改颜色的路径，返回空字符串
+  if (colorToPathIndices.size === 0) {
+    return '';
   }
-  
-  // 如果有不同的路径颜色，使用路径颜色格式
-  if (pathColors.length > 0) {
-    const colorSegments = [];
-    
-    pathColors.forEach(({ index, color }) => {
-      // 移除颜色中的#前缀
-      const colorValue = color.replace('#', '');
-      colorSegments.push(`${index}#${colorValue}`);
-    });
-    
-    return colorSegments.join(',');
+
+  // 检查是否所有修改的路径都使用相同的颜色
+  if (colorToPathIndices.size === 1) {
+    const onlyColor = colorToPathIndices.keys().next().value;
+    const pathIndices = colorToPathIndices.get(onlyColor);
+
+    // 如果只有一个路径被修改颜色，使用简单格式
+    if (pathIndices.length === 1) {
+      return `${pathIndices[0]}#${onlyColor.replace('#', '')}`;
+    }
   }
-  
-  // 如果没有自定义颜色，返回空字符串
-  return '';
+
+  // 构建颜色参数字符串
+  const colorSegments = [];
+
+  // 遍历每个颜色及其对应的路径索引
+  colorToPathIndices.forEach((pathIndices, color) => {
+    // 对路径索引进行排序，使URL参数更加一致
+    pathIndices.sort((a, b) => a - b);
+
+    // 移除颜色中的#前缀
+    const colorValue = color.replace('#', '');
+
+    // 优化：使用逗号分隔的路径索引和单个颜色值组合
+    // 格式：1,2#颜色值，表示路径1和路径2都使用这个颜色
+    const pathIndicesStr = pathIndices.join(',');
+    colorSegments.push(`${pathIndicesStr}#${colorValue}`);
+  });
+
+  // 返回排序后的路径颜色字符串，使URL参数更加一致
+  return colorSegments.sort((a, b) => {
+    // 按第一个路径索引排序
+    const firstIndexA = parseInt(a.split(',')[0].split('#')[0]);
+    const firstIndexB = parseInt(b.split(',')[0].split('#')[0]);
+    return firstIndexA - firstIndexB;
+  }).join(',');
 }
 
 // 从URL参数中解析并应用颜色信息（在打开图标详情时使用）
@@ -1705,11 +1797,11 @@ function applyColorFromUrlParam(icon, colorParam) {
   try {
     // 先通过 preloadColorFromUrlParam 处理颜色参数保存
     preloadColorFromUrlParam(icon.id, colorParam);
-    
+
     // 设置当前图标的颜色（用于详情页）
     const iconColor = iconColors.get(icon.id);
     const pathColorMap = pathColors.get(icon.id);
-    
+
     if (pathColorMap && pathColorMap.size > 0) {
       // 如果有路径级别的颜色设置，使用第一个路径的颜色作为当前图标颜色
       const firstColor = pathColorMap.values().next().value;
@@ -1719,7 +1811,7 @@ function applyColorFromUrlParam(icon, colorParam) {
     } else if (iconColor) {
       currentIconColor = iconColor;
     }
-    
+
     console.log(`应用颜色到图标详情: ${currentIconColor}`);
   } catch (error) {
     console.error('应用颜色参数失败:', error);
@@ -1797,8 +1889,8 @@ function createIconItem(icon) {
           } else if (originalStroke) {
             console.log(`跳过设置描边，原始值为: ${originalStroke}`);
           } else {
-              // 静默跳过，减少日志输出
-            }
+            // 静默跳过，减少日志输出
+          }
         }
       });
     } else if (iconOverallColor) {
@@ -1863,15 +1955,51 @@ function createIconItem(icon) {
   return container;
 }
 
-function openIconDetail(icon, colorParam) {
+function openIconDetail(icon, colorParam, rotateParam, mirrorParam) {
   if (!iconModal) return;
 
   currentIcon = icon;
-  currentIconColor = iconColors.get(icon.id) || '#409eff';
+  // 获取图标颜色（如果有保存的颜色则使用，否则获取图标原始颜色）
+  currentIconColor = iconColors.get(icon.id) || getIconOriginalColor(icon);
 
   // 如果提供了color参数，则解析并应用颜色
   if (colorParam) {
     applyColorFromUrlParam(icon, colorParam);
+  }
+
+  // 如果提供了rotate参数，则设置旋转状态
+  if (rotateParam) {
+    try {
+      window.currentIconRotation = parseInt(rotateParam, 10);
+      if (isNaN(window.currentIconRotation)) {
+        window.currentIconRotation = 0;
+      }
+      console.log(`应用URL中的旋转参数: ${window.currentIconRotation}度`);
+    } catch (error) {
+      console.error('解析旋转参数失败:', error);
+      window.currentIconRotation = 0;
+    }
+  } else {
+    window.currentIconRotation = 0;
+  }
+
+  // 如果提供了mirror参数，则设置镜像状态
+  if (mirrorParam) {
+    try {
+      const mirrorValues = mirrorParam.split(',');
+      if (mirrorValues.length >= 2) {
+        window.currentIconMirrorX = parseFloat(mirrorValues[0]) || 1;
+        window.currentIconMirrorY = parseFloat(mirrorValues[1]) || 1;
+        console.log(`应用URL中的镜像参数: X=${window.currentIconMirrorX}, Y=${window.currentIconMirrorY}`);
+      }
+    } catch (error) {
+      console.error('解析镜像参数失败:', error);
+      window.currentIconMirrorX = 1;
+      window.currentIconMirrorY = 1;
+    }
+  } else {
+    window.currentIconMirrorX = 1;
+    window.currentIconMirrorY = 1;
   }
 
   // 在打开详情页前，先找到主页对应的图标元素并滚动到可见区域
@@ -1892,26 +2020,26 @@ function openIconDetail(icon, colorParam) {
   } else if (hasMoreItems && !isLoading) {
     // 如果图标不在当前页面且有更多内容可加载
     console.log(`图标 ${icon.id} 不在当前页面，开始滚动加载`);
-    
+
     // 定义一个滚动加载函数，直到找到图标或没有更多内容
     const loadAndSearchForIcon = async () => {
       // 防止无限循环的最大尝试次数
       let maxScrollAttempts = 20;
-      
+
       while (maxScrollAttempts > 0) {
         maxScrollAttempts--;
-        
+
         // 加载更多图标
         loadMoreIcons();
-        
+
         // 等待加载完成
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // 再次尝试滚动到图标
         if (scrollToIcon()) {
           break;
         }
-        
+
         // 如果没有更多图标可加载，退出循环
         if (!hasMoreItems) {
           console.log(`已加载所有图标，仍未找到图标 ${icon.id}`);
@@ -1919,7 +2047,7 @@ function openIconDetail(icon, colorParam) {
         }
       }
     };
-    
+
     // 启动滚动加载过程
     loadAndSearchForIcon();
   }
@@ -1950,6 +2078,37 @@ function openIconDetail(icon, colorParam) {
     bindPath2ColorEvents();
     // 初始化图标预览区域的滚轮缩放功能
     initIconPreviewZoom();
+
+    // 应用全局缩放状态（如果存在）
+    setTimeout(() => {
+      if (modalIconPreview) {
+        // 获取全局缩放和位置状态
+        const scale = typeof window.currentIconScale !== 'undefined' ? window.currentIconScale : 1;
+        const x = typeof window.currentIconX !== 'undefined' ? window.currentIconX : 0;
+        const y = typeof window.currentIconY !== 'undefined' ? window.currentIconY : 0;
+
+        // 应用缩放、位置和变换状态
+        const rotation = typeof window.currentIconRotation !== 'undefined' ? window.currentIconRotation : 0;
+        const mirrorX = typeof window.currentIconMirrorX !== 'undefined' ? window.currentIconMirrorX : 1;
+        const mirrorY = typeof window.currentIconMirrorY !== 'undefined' ? window.currentIconMirrorY : 1;
+
+        modalIconPreview.style.transform = `translate(${x}px, ${y}px) scale(${scale}) scaleX(${mirrorX}) scaleY(${mirrorY}) rotate(${rotation}deg)`;
+        console.log(`openIconDetail: 应用缩放状态 ${scale}, 位置 (${x}, ${y}), 旋转 ${rotation}度, 镜像 X=${mirrorX}, Y=${mirrorY}`);
+
+        // 重新更新鼠标样式和重置按钮可见性
+        // 确保updateCursorStyle函数存在（该函数在initIconPreviewZoom中定义）
+        if (typeof updateCursorStyle === 'function') {
+          updateCursorStyle();
+        } else {
+          // 如果函数不存在，直接设置默认样式
+          modalIconPreview.style.cursor = 'default';
+          // 尝试直接调用updateResetButtonVisibility如果存在的话
+          if (typeof updateResetButtonVisibility === 'function') {
+            updateResetButtonVisibility();
+          }
+        }
+      }
+    }, 10);
   }, 100);
 
   if (modalTitle) modalTitle.textContent = `图标详情: ${icon.processedId || icon.id}`;
@@ -2004,6 +2163,23 @@ function openIconDetail(icon, colorParam) {
     svgWrapper.appendChild(svgElement);
     modalIconPreview.innerHTML = '';
     modalIconPreview.appendChild(svgWrapper);
+
+    // 如果当前处于全屏模式，立即应用固定尺寸样式
+    if (window.isFullscreenMode || isFullscreenMode) {
+      // 确保SVG包装器保持正确样式
+      svgWrapper.style.width = 'auto';
+      svgWrapper.style.height = 'auto';
+      svgWrapper.style.display = 'flex';
+      svgWrapper.style.alignItems = 'center';
+      svgWrapper.style.justifyContent = 'center';
+
+      // 确保SVG元素保持固定尺寸
+      const currentWidth = svgElement.getAttribute('width') || '200';
+      const currentHeight = svgElement.getAttribute('height') || '200';
+      svgElement.style.width = currentWidth + 'px';
+      svgElement.style.height = currentHeight + 'px';
+      svgElement.style.flexShrink = '0'; // 防止图标被压缩
+    }
 
     // 获取SVG元素用于后续操作
     const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
@@ -2099,6 +2275,9 @@ function openIconDetail(icon, colorParam) {
     modalContent.classList.remove('scale-95');
     modalContent.classList.add('scale-100');
   }
+
+  // 初始化Reset按钮的显示状态
+  updateIconResetBtnVisibility();
 }
 
 function updateSVGCodeDisplay() {
@@ -3178,7 +3357,7 @@ function updateIconColor(color, isReset = false) {
 
   updateSVGCodeDisplay();
   console.log(`updateIconColor: 已更新图标 ${currentIcon.id} 的颜色为 ${color}`);
-  
+
   // 更新URL中的color参数
   if (currentIcon) {
     const colorString = getCurrentIconColorString();
@@ -3318,18 +3497,18 @@ function resetIconColor() {
   console.log(`resetIconColor: 图标 ${currentIcon.id} 已从高优先级列表中移除`);
 
   // 重置为默认颜色（不是固定的蓝色，而是原始状态）
-  currentIconColor = '#409eff'; // 这只是界面显示的默认值
+  currentIconColor = getIconOriginalColor(currentIcon); // 重置为图标原始颜色
 
   // 更新自定义颜色选择器为默认值
   const customPicker = document.querySelector('#customColorPicker .color-input');
   if (customPicker) {
-    customPicker.value = '#409eff';
+    customPicker.value = getIconOriginalColor(currentIcon);
   }
 
   updateSVGCodeDisplay();
   showToast('已重置为原始颜色');
   console.log(`resetIconColor: 已重置图标 ${currentIcon.id} 的颜色`);
-  
+
   // 更新URL中的color参数，重置后移除颜色信息
   if (currentIcon) {
     updateUrlWithIconInfo(currentIcon.id, '');
@@ -3371,7 +3550,7 @@ function navigateToNextIcon() {
   }
 }
 
-function closeIconModal() {
+function closeIconModal(resetTransform = true) {
   if (iconModal) {
     // 移除URL中的id参数
     removeIconIdFromUrl();
@@ -3387,12 +3566,27 @@ function closeIconModal() {
       iconModal.classList.add('opacity-0', 'pointer-events-none');
     }, 200);
 
-    // 重置图标预览区域的缩放和位移状态
-    if (modalIconPreview) {
-      modalIconPreview.style.transform = 'translate(0px, 0px) scale(1)';
+    // 重置图标预览区域的变换状态
+    if (modalIconPreview && resetTransform) {
+      // 重置所有变换状态
+      modalIconPreview.style.transform = 'translate(0px, 0px) scale(1) scaleX(1) scaleY(1) rotate(0deg)';
       modalIconPreview.style.transition = '';
       modalIconPreview.style.cursor = 'default';
-      console.log('图标预览缩放和位移状态已重置');
+      console.log('图标预览变换状态已重置');
+
+      // 重置全局变量
+      window.currentIconScale = 1;
+      window.currentIconX = 0;
+      window.currentIconY = 0;
+      window.currentIconRotation = 0;
+      window.currentIconMirrorX = 1;
+      window.currentIconMirrorY = 1;
+
+      // 清空自定义旋转输入框
+      const customRotateInput = document.getElementById('customRotateInput');
+      if (customRotateInput) {
+        customRotateInput.value = '';
+      }
     }
 
     // 清除当前图标的高优先级标记，使其在首页可以被随机上色
@@ -3582,14 +3776,32 @@ function updateIconPreviewSize(size) {
     // 更新容器样式以适应新尺寸
     const svgWrapper = modalIconPreview.querySelector('.icon-svg-wrapper');
     if (svgWrapper) {
-      svgWrapper.style.width = size + 'px';
-      svgWrapper.style.height = size + 'px';
+      // 检查是否处于全屏模式
+      if (window.isFullscreenMode || isFullscreenMode) {
+        // 全屏模式下使用auto尺寸和flex布局确保图标居中且不被压缩
+        svgWrapper.style.width = 'auto';
+        svgWrapper.style.height = 'auto';
+        svgWrapper.style.display = 'flex';
+        svgWrapper.style.alignItems = 'center';
+        svgWrapper.style.justifyContent = 'center';
+      } else {
+        // 非全屏模式下使用固定尺寸
+        svgWrapper.style.width = size + 'px';
+        svgWrapper.style.height = size + 'px';
+      }
     }
 
     // 确保预览容器居中显示
     modalIconPreview.style.display = 'flex';
     modalIconPreview.style.alignItems = 'center';
     modalIconPreview.style.justifyContent = 'center';
+
+    // 在全屏模式下，确保SVG元素使用固定像素尺寸且不被压缩
+    if (window.isFullscreenMode || isFullscreenMode) {
+      svgElement.style.width = size + 'px';
+      svgElement.style.height = size + 'px';
+      svgElement.style.flexShrink = '0'; // 防止图标被压缩
+    }
   }
 }
 
@@ -3777,7 +3989,7 @@ function copyImageToClipboard(size = null) {
               // 创建简单的后备图像
               try {
                 // 使用图标当前颜色或默认蓝色
-                const iconColor = iconColors.get(currentIcon.id) || '#409eff';
+                const iconColor = iconColors.get(currentIcon.id) || getIconOriginalColor(currentIcon);
                 ctx.fillStyle = iconColor; // 允许设置真正的白色
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -3815,7 +4027,7 @@ function copyImageToClipboard(size = null) {
         // 添加错误时的后备方案：创建一个带有颜色的简单矩形
         try {
           // 使用图标当前颜色或默认蓝色
-          const iconColor = iconColors.get(currentIcon.id) || '#409eff';
+          const iconColor = iconColors.get(currentIcon.id) || getIconOriginalColor(currentIcon);
           ctx.fillStyle = iconColor; // 允许设置真正的白色
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -3943,7 +4155,7 @@ function getDownloadSettings() {
 
   const packagingOption = document.querySelector('input[name="packagingOption"]:checked')?.value || 'by-format-size';
   const useIndividualColors = document.getElementById('useIndividualColors')?.checked || false;
-  const batchColor = document.getElementById('batchColorPicker')?.value || '#409eff';
+  const batchColor = document.getElementById('batchColorPicker')?.value || (currentIcon ? getIconOriginalColor(currentIcon) : '#409eff');
 
   return {
     exportSvg,
@@ -4472,16 +4684,26 @@ function initIconPreviewZoom() {
     return;
   }
 
-  // 使用window对象存储当前缩放比例，供其他函数访问
-  window.currentIconScale = 1;
+  // 检查是否已有全局缩放比例，如果有则使用它，否则初始化为1
+  if (typeof window.currentIconScale === 'undefined') {
+    window.currentIconScale = 1;
+  }
   let currentScale = window.currentIconScale;
   const minScale = 0.5;
   const maxScale = 5;
   const scaleStep = 0.1;
 
+  // 检查是否已有全局位置变量，如果有则使用它们，否则初始化为0
+  if (typeof window.currentIconX === 'undefined') {
+    window.currentIconX = 0;
+  }
+  if (typeof window.currentIconY === 'undefined') {
+    window.currentIconY = 0;
+  }
+
   // 拖拽相关变量
-  let currentX = 0;
-  let currentY = 0;
+  let currentX = window.currentIconX;
+  let currentY = window.currentIconY;
   let isDragging = false;
   let startX = 0;
   let startY = 0;
@@ -4769,7 +4991,13 @@ function initIconPreviewZoom() {
   function applyTransform() {
     // 只有在确实需要变换时才应用
     if (isDragging || isZooming || currentScale !== 1) {
-      const transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+      // 获取旋转和镜像状态，确保它们正确应用到transform中
+      const rotation = window.currentIconRotation || 0;
+      const mirrorX = window.currentIconMirrorX || 1;
+      const mirrorY = window.currentIconMirrorY || 1;
+
+      // 应用完整的变换，包括位移、缩放、镜像和旋转
+      const transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale}) scaleX(${mirrorX}) scaleY(${mirrorY}) rotate(${rotation}deg)`;
       modalIconPreview.style.transform = transform;
       modalIconPreview.style.transformOrigin = 'center center';
 
@@ -4786,8 +5014,10 @@ function initIconPreviewZoom() {
     // 只有当缩放值发生变化时才更新
     if (newScale !== currentScale) {
       currentScale = newScale;
-      // 更新全局变量，供setPathSelectedState函数访问
+      // 更新全局变量，供setPathSelectedState函数和其他函数访问
       window.currentIconScale = currentScale;
+      window.currentIconX = currentX;
+      window.currentIconY = currentY;
 
       // 当缩放到1时，重置位移
       if (currentScale === 1) {
@@ -4828,7 +5058,18 @@ function initIconPreviewZoom() {
     currentScale = 1;
     currentX = 0;
     currentY = 0;
-    modalIconPreview.style.transform = 'translate(0px, 0px) scale(1)';
+    // 更新全局变量
+    window.currentIconScale = 1;
+    window.currentIconX = 0;
+    window.currentIconY = 0;
+
+    // 保留当前的旋转和镜像状态
+    const rotation = window.currentIconRotation || 0;
+    const mirrorX = window.currentIconMirrorX || 1;
+    const mirrorY = window.currentIconMirrorY || 1;
+
+    // 应用完整的变换，只重置位置和缩放，保留旋转和镜像
+    modalIconPreview.style.transform = `translate(0px, 0px) scale(1) scaleX(${mirrorX}) scaleY(${mirrorY}) rotate(${rotation}deg)`;
     modalIconPreview.style.transition = 'transform 0.2s ease-out';
     // 更新鼠标样式和返回按钮可见性
     updateCursorStyle();
@@ -4846,7 +5087,77 @@ function initIconPreviewZoom() {
     return currentX !== 0 || currentY !== 0 || currentScale > 1;
   }
 
-  // 更新返回中心点按钮的显示状态
+  // 获取全屏预览按钮
+  const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+
+  // 获取图标调整按钮和面板
+  const iconAdjustBtn = document.getElementById('iconAdjustBtn');
+  const iconAdjustPanel = document.getElementById('iconAdjustPanel');
+  const iconResetBtn = document.getElementById('iconResetBtn');
+
+  // 全局变量存储当前图标变换状态
+  window.currentIconRotation = 0; // 当前旋转角度
+  window.currentIconMirrorX = 1; // X轴镜像比例（1或-1）
+  window.currentIconMirrorY = 1; // Y轴镜像比例（1或-1）
+
+  // 检查图标是否有旋转或镜像调整
+  window.hasIconAdjustments = function () {
+    return window.currentIconRotation !== 0 ||
+      window.currentIconMirrorX !== 1 ||
+      window.currentIconMirrorY !== 1;
+  }
+
+  // 更新Reset按钮的显示状态
+  window.updateIconResetBtnVisibility = function () {
+    const iconResetBtn = document.getElementById('iconResetBtn');
+    if (iconResetBtn) {
+      if (window.hasIconAdjustments()) {
+        iconResetBtn.classList.remove('hidden');
+      } else {
+        iconResetBtn.classList.add('hidden');
+      }
+    }
+  }
+
+  // 重置图标旋转和镜像状态
+  window.resetIconAdjustments = function () {
+    // 保存当前的位置和缩放状态
+    const currentScale = window.currentIconScale || 1;
+    const currentX = window.currentIconX || 0;
+    const currentY = window.currentIconY || 0;
+
+    // 重置旋转和镜像状态
+    window.currentIconRotation = 0;
+    window.currentIconMirrorX = 1;
+    window.currentIconMirrorY = 1;
+
+    // 应用变换，保留位置和缩放
+    if (modalIconPreview) {
+      modalIconPreview.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale}) scaleX(1) scaleY(1) rotate(0deg)`;
+      modalIconPreview.style.transition = 'transform 0.2s ease-out';
+    }
+
+    // 更新Reset按钮的显示状态
+    window.updateIconResetBtnVisibility();
+
+    // 更新旋转输入框
+    const customRotateInput = document.getElementById('customRotateInput');
+    if (customRotateInput) {
+      customRotateInput.value = '';
+    }
+
+    // 更新URL参数，移除旋转和镜像信息
+    updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
+
+    showToast('图标旋转和镜像已重置', true);
+  }
+
+  // 为Reset按钮添加点击事件
+  if (iconResetBtn) {
+    iconResetBtn.addEventListener('click', window.resetIconAdjustments);
+  }
+
+  // 更新返回中心点按钮的显示状态（调整按钮始终显示）
   function updateResetButtonVisibility() {
     if (!resetIconPositionBtn) return;
 
@@ -4859,6 +5170,25 @@ function initIconPreviewZoom() {
       resetIconPositionBtn.classList.add('opacity-0', 'pointer-events-none');
       resetIconPositionBtn.classList.remove('opacity-100');
     }
+  }
+
+  // 为预览区域添加鼠标移入和移出事件
+  if (previewContainer) {
+    previewContainer.addEventListener('mouseenter', () => {
+      if (toggleFullscreenBtn) {
+        toggleFullscreenBtn.classList.remove('opacity-0', 'pointer-events-none');
+        toggleFullscreenBtn.classList.add('opacity-100');
+      }
+      // 调整按钮始终显示，无需在此处理
+    });
+
+    previewContainer.addEventListener('mouseleave', () => {
+      if (toggleFullscreenBtn) {
+        toggleFullscreenBtn.classList.add('opacity-0', 'pointer-events-none');
+        toggleFullscreenBtn.classList.remove('opacity-100');
+      }
+      // 调整按钮始终显示，无需在此处理
+    });
   }
 
   // 更新鼠标指针样式的函数
@@ -4874,7 +5204,796 @@ function initIconPreviewZoom() {
   // 初始更新鼠标指针样式
   updateCursorStyle();
 
+  // 初始化图标调整功能
+  initIconAdjustment();
+
   // 图标预览缩放和拖拽功能已初始化（支持滚轮、触摸缩放和拖拽移动）
+}
+
+// 初始化图标调整功能
+// 重置旋转角度函数
+function resetIconRotation() {
+  window.currentIconRotation = 0;
+  showToast('已重置旋转角度', true);
+  updateIconTransform();
+  updateIconResetBtnVisibility();
+
+  // 清空自定义旋转输入框
+  const customRotateInput = document.getElementById('customRotateInput');
+  if (customRotateInput) {
+    customRotateInput.value = '';
+  }
+}
+
+// 重置镜像方式函数
+function resetIconMirror() {
+  window.currentIconMirrorX = 1;
+  window.currentIconMirrorY = 1;
+  showToast('已重置镜像方式', true);
+  updateIconTransform();
+  updateIconResetBtnVisibility();
+}
+
+function initIconAdjustment() {
+  // 初始化全局变换变量，确保在使用前有默认值
+  window.currentIconRotation = window.currentIconRotation || 0;
+  window.currentIconMirrorX = window.currentIconMirrorX || 1;
+  window.currentIconMirrorY = window.currentIconMirrorY || 1;
+  window.currentIconScale = window.currentIconScale || 1;
+  window.currentIconX = window.currentIconX || 0;
+  window.currentIconY = window.currentIconY || 0;
+
+  // 从URL参数读取旋转角度和镜像状态
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // 读取旋转角度
+    const rotateParam = urlParams.get('rotate');
+    if (rotateParam) {
+      const angle = parseInt(rotateParam);
+      if (!isNaN(angle) && angle >= -360 && angle <= 360) {
+        window.currentIconRotation = angle;
+        console.log('从URL参数加载旋转角度:', angle);
+      }
+    }
+
+    // 读取镜像状态
+    const mirrorParam = urlParams.get('mirror');
+    if (mirrorParam) {
+      const [mirrorX, mirrorY] = mirrorParam.split(',').map(val => parseInt(val));
+      if (!isNaN(mirrorX) && (mirrorX === 1 || mirrorX === -1) &&
+        !isNaN(mirrorY) && (mirrorY === 1 || mirrorY === -1)) {
+        window.currentIconMirrorX = mirrorX;
+        window.currentIconMirrorY = mirrorY;
+        console.log('从URL参数加载镜像状态:', { mirrorX, mirrorY });
+      }
+    }
+  } catch (error) {
+    console.error('从URL参数读取图标变换状态时出错:', error);
+  }
+
+  console.log('初始化变换变量:', {
+    rotation: window.currentIconRotation,
+    mirrorX: window.currentIconMirrorX,
+    mirrorY: window.currentIconMirrorY,
+    scale: window.currentIconScale,
+    translateX: window.currentIconX,
+    translateY: window.currentIconY
+  });
+
+  // 使用全局变量以便于调试
+  window.iconAdjustBtn = document.getElementById('iconAdjustBtn');
+  window.iconAdjustPanel = document.getElementById('iconAdjustPanel');
+
+  // 声明控制按钮的引用变量
+  const rotateBtns = document.querySelectorAll('.rotate-btn');
+  const customRotateInput = document.getElementById('customRotateInput');
+  const mirrorBtns = document.querySelectorAll('.mirror-btn');
+  const resetRotationBtn = document.getElementById('resetRotationBtn');
+  const resetMirrorBtn = document.getElementById('resetMirrorBtn');
+
+  // 确保变量正确引用
+  console.log('初始化图标调整功能:', {
+    iconAdjustBtn: window.iconAdjustBtn,
+    iconAdjustPanel: window.iconAdjustPanel,
+    rotateBtns: rotateBtns,
+    customRotateInput: customRotateInput,
+    mirrorBtns: mirrorBtns,
+    hasButton: !!window.iconAdjustBtn,
+    hasPanel: !!window.iconAdjustPanel
+  });
+
+  // 确保面板默认是隐藏的
+  if (window.iconAdjustPanel) {
+    window.iconAdjustPanel.classList.add('hidden');
+    console.log('调整面板默认设置为隐藏');
+  }
+
+  // 添加点击事件处理
+  if (window.iconAdjustBtn && window.iconAdjustPanel) {
+    // 先移除可能存在的事件监听器，避免重复绑定
+    window.iconAdjustBtn.onclick = null;
+
+    // 使用onclick属性而非addEventListener，避免重复绑定
+    window.iconAdjustBtn.onclick = function (event) {
+      // 阻止默认行为和冒泡
+      event.preventDefault();
+      event.stopPropagation();
+
+      // 直接控制hidden类的移除与添加
+      const isHidden = window.iconAdjustPanel.classList.contains('hidden');
+      console.log('点击调整按钮，当前状态:', { isHidden });
+
+      if (isHidden) {
+        // 显示面板
+        window.iconAdjustPanel.classList.remove('hidden');
+        console.log('移除hidden类，显示面板');
+      } else {
+        // 隐藏面板
+        window.iconAdjustPanel.classList.add('hidden');
+        console.log('添加hidden类，隐藏面板');
+      }
+    };
+
+    // 移除点击外部区域自动隐藏面板的功能
+    // 用户现在只能通过点击调整按钮来控制面板的显隐
+    console.log('面板显隐模式: 仅通过调整按钮控制');
+
+    // 预设旋转角度按钮事件
+    rotateBtns.forEach(btn => {
+      // 先移除可能存在的事件监听器
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // 阻止冒泡，防止触发文档点击事件
+        const angle = parseInt(newBtn.getAttribute('data-angle'));
+        console.log('点击旋转按钮，角度:', angle);
+        rotateIcon(angle);
+      });
+    });
+
+    // 自定义旋转角度输入
+    if (customRotateInput) {
+      // 清除可能存在的事件监听器
+      const newInput = customRotateInput.cloneNode(true);
+      customRotateInput.parentNode.replaceChild(newInput, customRotateInput);
+
+      newInput.addEventListener('change', (event) => {
+        event.stopPropagation(); // 阻止冒泡
+        let angle = parseInt(newInput.value);
+        console.log('自定义旋转角度输入:', angle);
+        if (!isNaN(angle) && angle >= -360 && angle <= 360) {
+          // 自定义度数应该是相对于初始状态的绝对角度
+          rotateIcon(angle, true);
+        } else {
+          showToast('请输入-360到360之间的有效数字', false);
+        }
+      });
+
+      // 回车键确认自定义角度
+      newInput.addEventListener('keyup', (e) => {
+        e.stopPropagation(); // 阻止冒泡
+        if (e.key === 'Enter') {
+          newInput.dispatchEvent(new Event('change'));
+        }
+      });
+    }
+
+    // 镜像按钮事件
+    mirrorBtns.forEach(btn => {
+      // 先移除可能存在的事件监听器
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // 阻止冒泡，防止触发文档点击事件
+        const mirrorType = newBtn.getAttribute('data-mirror');
+        console.log('点击镜像按钮，类型:', mirrorType);
+        applyMirror(mirrorType);
+      });
+    });
+
+    // 重置旋转角度按钮事件
+    if (resetRotationBtn) {
+      resetRotationBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // 阻止冒泡，防止触发文档点击事件
+        console.log('点击重置旋转角度按钮');
+        resetIconRotation();
+      });
+    }
+
+    // 重置镜像方式按钮事件
+    if (resetMirrorBtn) {
+      resetMirrorBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // 阻止冒泡，防止触发文档点击事件
+        console.log('点击重置镜像方式按钮');
+        resetIconMirror();
+      });
+    }
+
+    console.log('图标调整功能初始化完成，所有事件监听器已绑定');
+  }
+  else {
+    console.warn('图标调整功能初始化失败，找不到必要的DOM元素');
+  }
+}
+
+// 旋转图标函数
+// @param {number} angle - 旋转角度
+// @param {boolean} isAbsolute - 是否为绝对角度（相对于初始状态），默认为false（相对于当前状态）
+function rotateIcon(angle, isAbsolute = false) {
+  if (isAbsolute) {
+    // 直接设置为指定角度（从初始状态开始）
+    window.currentIconRotation = angle % 360;
+    // 确保角度为正数
+    if (window.currentIconRotation < 0) {
+      window.currentIconRotation += 360;
+    }
+    showToast(`已设置旋转角度为${angle}°`, true);
+  } else {
+    // 累加旋转角度（相对于当前状态）
+    window.currentIconRotation = (window.currentIconRotation + angle) % 360;
+    // 确保角度为正数
+    if (window.currentIconRotation < 0) {
+      window.currentIconRotation += 360;
+    }
+    showToast(`已旋转${angle}°`, true);
+  }
+  updateIconTransform();
+  window.updateIconResetBtnVisibility();
+}
+
+// 应用镜像函数
+function applyMirror(type) {
+  switch (type) {
+    case 'horizontal':
+      window.currentIconMirrorX = window.currentIconMirrorX * -1;
+      showToast(window.currentIconMirrorX === -1 ? '已应用左右镜像' : '已取消左右镜像', true);
+      break;
+    case 'vertical':
+      window.currentIconMirrorY = window.currentIconMirrorY * -1;
+      showToast(window.currentIconMirrorY === -1 ? '已应用上下镜像' : '已取消上下镜像', true);
+      break;
+    case 'both':
+      window.currentIconMirrorX = window.currentIconMirrorX * -1;
+      window.currentIconMirrorY = window.currentIconMirrorY * -1;
+      showToast('已应用上下左右镜像', true);
+      break;
+  }
+  updateIconTransform();
+  updateIconResetBtnVisibility();
+}
+
+// 更新图标变换（旋转和镜像）
+function updateIconTransform() {
+  const modalIconPreview = document.getElementById('modalIconPreview');
+  if (!modalIconPreview) return;
+
+  // 获取当前的缩放和位移值
+  const scale = window.currentIconScale || 1;
+  const translateX = window.currentIconX || 0;
+  const translateY = window.currentIconY || 0;
+  const rotation = window.currentIconRotation || 0;
+  const mirrorX = window.currentIconMirrorX || 1;
+  const mirrorY = window.currentIconMirrorY || 1;
+
+  // 应用完整的变换
+  modalIconPreview.style.transform =
+    `translate(${translateX}px, ${translateY}px) ` +
+    `scale(${scale}) ` +
+    `scaleX(${mirrorX}) scaleY(${mirrorY}) ` +
+    `rotate(${rotation}deg)`;
+
+  // 更新URL参数，保持当前图标ID和颜色不变
+  if (currentIcon && currentIcon.id) {
+    updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
+  }
+}
+function initFullscreenPreview() {
+  const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+  const previewContainer = document.querySelector('.detail-preview-container');
+  const modalContent = document.querySelector('#iconModal > div');
+  const modalIconPreview = document.getElementById('modalIconPreview');
+  const iconModal = document.getElementById('iconModal'); // 获取模态框元素
+
+  if (!toggleFullscreenBtn || !previewContainer || !modalContent) return;
+
+  // 使用全局的isFullscreenMode变量
+  let originalStyles = {};
+  let originalModalStyles = {};
+  let originalIconPreviewStyles = {};
+  let originalBodyOverflow = document.body.style.overflow;
+
+  toggleFullscreenBtn.addEventListener('click', () => {
+    toggleFullscreenPreview();
+  });
+
+  // 切换全屏预览模式
+  function toggleFullscreenPreview() {
+    if (isFullscreenMode) {
+      // 退出全屏模式
+      exitFullscreenMode();
+    } else {
+      // 进入全屏模式
+      enterFullscreenMode();
+    }
+
+    // 更新按钮图标
+    updateFullscreenButtonIcon();
+  }
+
+  // 进入全屏模式 - 使用网站内全屏展示
+  function enterFullscreenMode() {
+    if (isFullscreenMode) return;
+
+    // 保存原始样式
+    originalStyles = {
+      position: previewContainer.style.position,
+      width: previewContainer.style.width,
+      height: previewContainer.style.height,
+      padding: previewContainer.style.padding,
+      borderRadius: previewContainer.style.borderRadius,
+      backgroundColor: previewContainer.style.backgroundColor,
+      backgroundImage: previewContainer.style.backgroundImage,
+      backgroundSize: previewContainer.style.backgroundSize,
+      backgroundPosition: previewContainer.style.backgroundPosition,
+      zIndex: previewContainer.style.zIndex,
+      boxShadow: previewContainer.style.boxShadow
+    };
+
+    originalModalStyles = {
+      padding: modalContent.style.padding,
+      backgroundColor: modalContent.style.backgroundColor,
+      maxWidth: modalContent.style.maxWidth,
+      maxHeight: modalContent.style.maxHeight,
+      borderRadius: modalContent.style.borderRadius,
+      boxShadow: modalContent.style.boxShadow
+    };
+
+    originalIconPreviewStyles = {
+      maxHeight: modalIconPreview.style.maxHeight,
+      height: modalIconPreview.style.height,
+      overflow: modalIconPreview.style.overflow
+    };
+
+    // 隐藏页面滚动条
+    document.body.style.overflow = 'hidden';
+
+    // 调整模态框内容和图标预览区域样式，实现网站内全屏效果
+    modalContent.style.padding = '0';
+    modalContent.style.backgroundColor = 'rgba(255, 255, 255, 1)'; // 不透明背景
+    modalContent.style.maxWidth = '100vw';
+    modalContent.style.maxHeight = '100vh';
+    modalContent.style.borderRadius = '0';
+    modalContent.style.boxShadow = 'none';
+    // 确保模态框内容真正充满
+    modalContent.style.width = '100vw';
+    modalContent.style.height = '100vh';
+    modalContent.style.overflow = 'hidden';
+
+    // 调整预览容器为网站内全屏 - 确保容器充满但图标尺寸固定
+    previewContainer.style.position = 'fixed';
+    previewContainer.style.width = '100vw';
+    previewContainer.style.height = '100vh';
+    previewContainer.style.padding = '20px'; // 保留一些内边距
+    previewContainer.style.borderRadius = '0';
+    previewContainer.style.zIndex = '9999';
+    previewContainer.style.left = '0';
+    previewContainer.style.top = '0';
+    previewContainer.style.margin = '0';
+    previewContainer.style.boxShadow = 'none';
+    previewContainer.style.overflow = 'hidden';
+
+    // 调整图标预览区域 - 确保容器充满屏幕但保持图标居中显示
+    modalIconPreview.style.maxHeight = '100vh';
+    modalIconPreview.style.height = '100vh';
+    modalIconPreview.style.overflow = 'hidden'; // 防止内部滚动条
+    modalIconPreview.style.width = '100%';
+    // 确保图标居中显示
+    modalIconPreview.style.display = 'flex';
+    modalIconPreview.style.alignItems = 'center';
+    modalIconPreview.style.justifyContent = 'center';
+
+    // 确保SVG包装器的样式不会导致图标缩放
+    const svgWrapper = modalIconPreview.querySelector('.icon-svg-wrapper');
+    if (svgWrapper) {
+      svgWrapper.style.width = 'auto'; // 让包装器根据内容调整宽度
+      svgWrapper.style.height = 'auto'; // 让包装器根据内容调整高度
+      svgWrapper.style.display = 'flex';
+      svgWrapper.style.alignItems = 'center';
+      svgWrapper.style.justifyContent = 'center';
+    }
+
+    // 确保SVG元素保持固定尺寸 - 使用当前设置的尺寸或默认200
+    const svgElement = modalIconPreview.querySelector('.icon-svg-element');
+    if (svgElement) {
+      // 获取当前尺寸，如果没有则使用默认值200
+      const currentWidth = svgElement.getAttribute('width') || '200';
+      const currentHeight = svgElement.getAttribute('height') || '200';
+      // 明确设置固定尺寸
+      svgElement.style.width = currentWidth + 'px';
+      svgElement.style.height = currentHeight + 'px';
+      svgElement.style.flexShrink = '0'; // 防止图标被压缩
+    }
+
+    // 确保模态框本身也调整为全屏
+    if (iconModal) {
+      iconModal.style.maxWidth = '100vw';
+      iconModal.style.maxHeight = '100vh';
+      iconModal.style.width = '100vw';
+      iconModal.style.height = '100vh';
+    }
+
+    // 添加拖拽和缩放功能
+    addDragAndScaleFunctionality();
+
+    // 设置全局变量
+    window.isFullscreenMode = true;
+    isFullscreenMode = true;
+  }
+
+  // 退出全屏模式
+  function exitFullscreenMode() {
+    if (!isFullscreenMode) return;
+
+    // 保存用户在全屏模式下修改的背景颜色
+    const currentBackgroundColor = previewContainer.style.backgroundColor;
+    const currentBackgroundImage = previewContainer.style.backgroundImage;
+    const currentBackgroundSize = previewContainer.style.backgroundSize;
+    const currentBackgroundPosition = previewContainer.style.backgroundPosition;
+
+    // 恢复原始样式，但保留背景色相关设置
+    previewContainer.style.position = originalStyles.position;
+    previewContainer.style.width = originalStyles.width;
+    previewContainer.style.height = originalStyles.height;
+    previewContainer.style.padding = originalStyles.padding;
+    previewContainer.style.borderRadius = originalStyles.borderRadius;
+    // 使用当前背景色而不是恢复原始背景色
+    previewContainer.style.backgroundColor = currentBackgroundColor;
+    previewContainer.style.backgroundImage = currentBackgroundImage;
+    previewContainer.style.backgroundSize = currentBackgroundSize;
+    previewContainer.style.backgroundPosition = currentBackgroundPosition;
+    previewContainer.style.zIndex = originalStyles.zIndex;
+    previewContainer.style.boxShadow = originalStyles.boxShadow;
+    previewContainer.style.left = '';
+    previewContainer.style.top = '';
+    previewContainer.style.margin = '';
+    previewContainer.style.overflow = ''; // 恢复原始溢出设置
+
+    // 恢复模态框内容
+    modalContent.style.padding = originalModalStyles.padding;
+    modalContent.style.backgroundColor = originalModalStyles.backgroundColor;
+    modalContent.style.maxWidth = originalModalStyles.maxWidth;
+    modalContent.style.maxHeight = originalModalStyles.maxHeight;
+    modalContent.style.borderRadius = originalModalStyles.borderRadius;
+    modalContent.style.boxShadow = originalModalStyles.boxShadow;
+    // 恢复宽度和高度
+    modalContent.style.width = '';
+    modalContent.style.height = '';
+    modalContent.style.overflow = '';
+
+    // 恢复图标预览区域
+    modalIconPreview.style.maxHeight = originalIconPreviewStyles.maxHeight;
+    modalIconPreview.style.height = originalIconPreviewStyles.height;
+    modalIconPreview.style.overflow = originalIconPreviewStyles.overflow;
+    modalIconPreview.style.width = ''; // 恢复原始宽度设置
+
+    // 恢复模态框本身
+    if (iconModal) {
+      iconModal.style.maxWidth = '';
+      iconModal.style.maxHeight = '';
+      iconModal.style.width = '';
+      iconModal.style.height = '';
+    }
+
+    // 恢复页面滚动条
+    document.body.style.overflow = originalBodyOverflow;
+
+    // 移除拖拽和缩放功能
+    removeDragAndScaleFunctionality();
+
+    // 设置全局变量
+    window.isFullscreenMode = false;
+    isFullscreenMode = false;
+  }
+
+  // 更新全屏按钮图标
+  function updateFullscreenButtonIcon() {
+    const iconElement = toggleFullscreenBtn.querySelector('i');
+    if (iconElement) {
+      if (isFullscreenMode) {
+        iconElement.classList.remove('fa-expand');
+        iconElement.classList.add('fa-compress');
+      } else {
+        iconElement.classList.remove('fa-compress');
+        iconElement.classList.add('fa-expand');
+      }
+    }
+  }
+
+  // 添加拖拽和缩放功能
+  function addDragAndScaleFunctionality() {
+    const svgElement = modalIconPreview.querySelector('.icon-svg-element');
+    if (!svgElement) return;
+
+    // 设置初始样式
+    svgElement.style.cursor = 'grab';
+    svgElement.style.transition = 'transform 0.1s ease-out';
+
+    let isDragging = false;
+    let currentX = 0;
+    let currentY = 0;
+    let initialX = 0;
+    let initialY = 0;
+    let translateX = 0;
+    let translateY = 0;
+    let scale = 1;
+    let lastDistance = 0;
+
+    // 鼠标按下事件
+    svgElement.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // 只允许左键拖拽
+
+      isDragging = true;
+      svgElement.style.cursor = 'grabbing';
+
+      initialX = e.clientX - translateX;
+      initialY = e.clientY - translateY;
+    });
+
+    // 鼠标移动事件
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      e.preventDefault();
+
+      currentX = e.clientX - initialX;
+      currentY = e.clientY - initialY;
+
+      translateX = currentX;
+      translateY = currentY;
+
+      updateTransform();
+    });
+
+    // 鼠标松开事件
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+      svgElement.style.cursor = 'grab';
+    });
+
+    // 鼠标滚轮缩放事件
+    svgElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+
+      // 计算鼠标位置相对于SVG元素的中心点
+      const rect = svgElement.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // 计算缩放前的鼠标相对于SVG的位置比例
+      const mouseRatioX = mouseX / (rect.width * scale);
+      const mouseRatioY = mouseY / (rect.height * scale);
+
+      // 应用缩放
+      const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      scale = Math.max(0.1, Math.min(10, scale * scaleFactor));
+
+      // 调整平移以保持鼠标位置不变
+      const newWidth = rect.width * scale;
+      const newHeight = rect.height * scale;
+
+      translateX = mouseX - (newWidth * mouseRatioX);
+      translateY = mouseY - (newHeight * mouseRatioY);
+
+      updateTransform();
+    });
+
+    // 触摸事件处理（移动端支持）
+    svgElement.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        // 单点触摸 - 拖拽
+        const touch = e.touches[0];
+        isDragging = true;
+        initialX = touch.clientX - translateX;
+        initialY = touch.clientY - translateY;
+      } else if (e.touches.length === 2) {
+        // 双点触摸 - 缩放
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        lastDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      }
+    });
+
+    svgElement.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+
+      if (e.touches.length === 1 && isDragging) {
+        // 拖拽处理
+        const touch = e.touches[0];
+        currentX = touch.clientX - initialX;
+        currentY = touch.clientY - initialY;
+
+        translateX = currentX;
+        translateY = currentY;
+
+        updateTransform();
+      } else if (e.touches.length === 2) {
+        // 缩放处理
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+
+        if (lastDistance > 0) {
+          const scaleFactor = distance / lastDistance;
+          scale = Math.max(0.1, Math.min(10, scale * scaleFactor));
+          updateTransform();
+        }
+
+        lastDistance = distance;
+      }
+    });
+
+    svgElement.addEventListener('touchend', () => {
+      isDragging = false;
+      lastDistance = 0;
+    });
+
+    // 更新元素变换
+    function updateTransform() {
+      svgElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    // 添加键盘事件支持（方向键移动，+/-缩放）
+    function handleKeyDown(e) {
+      const moveAmount = 10;
+      const scaleAmount = 0.1;
+
+      // 阻止在全屏模式下页面滚动
+      if (isFullscreenMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === ' ')) {
+        e.preventDefault();
+      }
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          translateX -= moveAmount;
+          break;
+        case 'ArrowRight':
+          translateX += moveAmount;
+          break;
+        case 'ArrowUp':
+          translateY -= moveAmount;
+          break;
+        case 'ArrowDown':
+          translateY += moveAmount;
+          break;
+        case '+':
+        case '=':
+          scale = Math.min(10, scale + scaleAmount);
+          break;
+        case '-':
+        case '_':
+          scale = Math.max(0.1, scale - scaleAmount);
+          break;
+        case '0':
+          // 重置缩放和平移
+          translateX = 0;
+          translateY = 0;
+          scale = 1;
+          break;
+        case 'Escape':
+          // ESC键退出全屏
+          if (isFullscreenMode) {
+            e.preventDefault(); // 阻止浏览器默认行为
+            exitFullscreenMode();
+            updateFullscreenButtonIcon();
+          }
+          break;
+        default:
+          return; // 不处理其他键
+      }
+
+      updateTransform();
+    }
+
+    // 保存事件处理函数引用以便移除
+    svgElement._handleKeyDown = handleKeyDown;
+    document.addEventListener('keydown', handleKeyDown);
+  }
+
+  // 移除拖拽和缩放功能
+  function removeDragAndScaleFunctionality() {
+    const svgElement = modalIconPreview.querySelector('.icon-svg-element');
+    if (!svgElement) return;
+
+    // 移除事件监听器
+    document.removeEventListener('keydown', svgElement._handleKeyDown);
+
+    // 移除SVG元素上的事件监听器（使用匿名函数的副本）
+    const clonedSvg = svgElement.cloneNode(true);
+    svgElement.parentNode.replaceChild(clonedSvg, svgElement);
+
+    // 恢复原始样式
+    clonedSvg.style.transform = '';
+    clonedSvg.style.cursor = '';
+    clonedSvg.style.transition = '';
+
+    // 清除保存的事件处理函数引用
+    delete svgElement._handleKeyDown;
+  }
+
+  // 当模态框关闭时，确保退出全屏模式
+  document.addEventListener('click', (e) => {
+    if ((e.target === document.getElementById('iconModal') || e.target.closest('.close-modal')) && isFullscreenMode) {
+      exitFullscreenMode();
+      updateFullscreenButtonIcon();
+    }
+  });
+
+  // 确保窗口大小变化时调整样式，避免滚动条问题
+  window.addEventListener('resize', () => {
+    if (isFullscreenMode) {
+      // 确保全屏模式下没有滚动条
+      document.body.style.overflow = 'hidden';
+      modalIconPreview.style.overflow = 'hidden';
+      previewContainer.style.overflow = 'hidden';
+      modalContent.style.overflow = 'hidden';
+
+      // 更新所有全屏容器的尺寸以适应窗口变化
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // 更新预览容器尺寸
+      previewContainer.style.width = `${viewportWidth}px`;
+      previewContainer.style.height = `${viewportHeight}px`;
+
+      // 更新模态框内容尺寸
+      modalContent.style.width = `${viewportWidth}px`;
+      modalContent.style.height = `${viewportHeight}px`;
+      modalContent.style.maxWidth = `${viewportWidth}px`;
+      modalContent.style.maxHeight = `${viewportHeight}px`;
+
+      // 更新图标预览区域尺寸 - 但保持图标居中
+      modalIconPreview.style.width = '100%';
+      modalIconPreview.style.height = `${viewportHeight}px`;
+      modalIconPreview.style.maxHeight = `${viewportHeight}px`;
+      // 确保图标始终居中显示
+      modalIconPreview.style.display = 'flex';
+      modalIconPreview.style.alignItems = 'center';
+      modalIconPreview.style.justifyContent = 'center';
+
+      // 更新模态框本身尺寸
+      if (iconModal) {
+        iconModal.style.width = `${viewportWidth}px`;
+        iconModal.style.height = `${viewportHeight}px`;
+        iconModal.style.maxWidth = `${viewportWidth}px`;
+        iconModal.style.maxHeight = `${viewportHeight}px`;
+      }
+
+      // 确保SVG包装器保持正确样式，不影响图标尺寸
+      const svgWrapper = modalIconPreview.querySelector('.icon-svg-wrapper');
+      if (svgWrapper) {
+        svgWrapper.style.width = 'auto';
+        svgWrapper.style.height = 'auto';
+        svgWrapper.style.display = 'flex';
+        svgWrapper.style.alignItems = 'center';
+        svgWrapper.style.justifyContent = 'center';
+      }
+
+      // 重要：明确保持SVG元素的固定尺寸，不随窗口变化而变化
+      const svgElement = modalIconPreview.querySelector('.icon-svg-element');
+      if (svgElement) {
+        // 获取当前尺寸，如果没有则使用默认值200
+        const currentWidth = svgElement.getAttribute('width') || '200';
+        const currentHeight = svgElement.getAttribute('height') || '200';
+        // 明确设置固定尺寸，防止被窗口大小影响
+        svgElement.style.width = currentWidth + 'px';
+        svgElement.style.height = currentHeight + 'px';
+        svgElement.style.flexShrink = '0'; // 防止图标被压缩
+      }
+    }
+  });
 }
 
 // 背景颜色切换功能
@@ -5001,27 +6120,30 @@ function initBackgroundColorChanger() {
 function copyCurrentUrl() {
   // 获取当前完整URL
   const currentUrl = window.location.href;
-  
+
   // 使用现代API复制到剪贴板
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(currentUrl).then(() => {
       // 显示复制成功提示
       showToast('链接已复制到剪贴板！');
       console.log('URL已成功复制到剪贴板');
-      
-      // 可选：临时更改按钮样式以提供视觉反馈
+
+      // 临时更改按钮样式以提供视觉反馈
       const copyBtn = document.getElementById('copyUrlBtn');
       if (copyBtn) {
+        // 保存原始内容
         const originalContent = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<i class="fa-solid fa-check mr-1 text-lg"></i><span class="hidden sm:inline">已复制</span>';
+        // 替换为成功状态，保持相同的样式规格
+        copyBtn.innerHTML = '<i class="fa-solid fa-check text-[1.9em]"></i><span class="hidden sm:inline">已复制</span>';
+        // 直接设置为成功颜色，不再经过中间状态
         copyBtn.classList.add('text-green-600');
-        copyBtn.classList.remove('text-neutral-400');
-        
+        copyBtn.classList.remove('text-neutral-400', 'hover:text-primary');
+
         // 1.5秒后恢复按钮原始状态
         setTimeout(() => {
           copyBtn.innerHTML = originalContent;
           copyBtn.classList.remove('text-green-600');
-          copyBtn.classList.add('text-neutral-400');
+          copyBtn.classList.add('text-neutral-400', 'hover:text-primary');
         }, 1500);
       }
     }).catch(err => {
@@ -5037,7 +6159,7 @@ function copyCurrentUrl() {
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     try {
       document.execCommand('copy');
       showToast('链接已复制到剪贴板！');
@@ -5046,7 +6168,7 @@ function copyCurrentUrl() {
       console.error('复制失败:', err);
       showToast('复制失败，请手动复制URL');
     }
-    
+
     document.body.removeChild(textArea);
   }
 }
@@ -5064,7 +6186,7 @@ window.addEventListener('load', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const iconId = urlParams.get('id');
   const colorParam = urlParams.get('color');
-  
+
   if (iconId && colorParam) {
     console.log(`页面完全加载后，尝试应用颜色到主页图标: ${iconId}`);
     // 确保预加载颜色信息
@@ -5078,7 +6200,7 @@ window.addEventListener('load', () => {
       }
     }, 1000);
   }
-  
+
   // 绑定URL复制按钮的点击事件
   const copyUrlBtn = document.getElementById('copyUrlBtn');
   if (copyUrlBtn) {
