@@ -7,6 +7,9 @@
 // 当前选中的图标对象，存储图标完整信息（ID、名称、SVG代码等）
 let currentIcon = null;
 
+// 尺寸选择模式：true为单选，false为多选
+let isSingleSelectionMode = true;
+
 // 是否处于全屏预览模式（全局变量，供多个函数访问）
 let isFullscreenMode = false;
 
@@ -343,6 +346,52 @@ function initializeEventListeners() {
   const customSizeDisplay = document.getElementById('customSizeDisplay');
   const applyCustomSizeBtn = document.getElementById('applyCustomSizeBtn');
 
+  // 单选多选切换按钮事件处理
+  const toggleSelectionModeBtn = document.getElementById('toggleSelectionModeBtn');
+  if (toggleSelectionModeBtn) {
+    toggleSelectionModeBtn.addEventListener('click', () => {
+      // 切换选择模式
+      isSingleSelectionMode = !isSingleSelectionMode;
+      
+      // 更新按钮UI
+      const iconElement = toggleSelectionModeBtn.querySelector('i');
+      const textElement = toggleSelectionModeBtn.querySelector('span');
+      
+      if (isSingleSelectionMode) {
+        // 切换到单选模式
+        iconElement.className = 'fa-solid fa-radio text-primary mr-1.5';
+        textElement.textContent = '单选';
+        
+        // 单选模式下，只保留最后一个选中的尺寸
+        const selectedOptions = document.querySelectorAll('.size-option.border-primary');
+        if (selectedOptions.length > 1) {
+          // 移除所有选中状态
+          selectedOptions.forEach(option => {
+            option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+            option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+          });
+          
+          // 只选中最后一个
+          const lastOption = selectedOptions[selectedOptions.length - 1];
+          lastOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+          lastOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+          
+          // 更新预览尺寸
+          selectedSize = parseInt(lastOption.dataset.size);
+          updateIconPreviewSize(selectedSize);
+          showToast(`已切换到单选模式，当前选中 ${selectedSize}x${selectedSize}`);
+        } else if (selectedOptions.length === 1) {
+          showToast('已切换到单选模式');
+        }
+      } else {
+        // 切换到多选模式
+        iconElement.className = 'fa-solid fa-check-double text-primary mr-1.5';
+        textElement.textContent = '多选';
+        showToast('已切换到多选模式');
+      }
+    });
+  }
+  
   // 实时更新自定义尺寸显示
   if (customSizeInput && customSizeDisplay) {
     customSizeInput.addEventListener('input', () => {
@@ -389,11 +438,13 @@ function initializeEventListeners() {
       sizeOptions.insertBefore(customOption, customContainer);
     }
 
-    // 取消选中其他所有选项
-    document.querySelectorAll('.size-option').forEach(option => {
-      option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
-      option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
-    });
+    if (isSingleSelectionMode) {
+      // 单选模式：取消选中其他所有选项
+      document.querySelectorAll('.size-option').forEach(option => {
+        option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+        option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+      });
+    }
 
     // 选中自定义尺寸选项
     customOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
@@ -407,7 +458,7 @@ function initializeEventListeners() {
     showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
   }
 
-  // 尺寸选择器事件 - 支持多选
+  // 尺寸选择器事件 - 支持单选和多选模式
   if (sizeOptions) {
     sizeOptions.addEventListener('click', (e) => {
       // 忽略自定义尺寸输入框区域的点击
@@ -417,46 +468,62 @@ function initializeEventListeners() {
 
       const sizeOption = e.target.closest('.size-option');
       if (sizeOption) {
-        // 切换选中状态（多选模式）
-        if (sizeOption.classList.contains('border-primary')) {
-          // 移除选中状态的Tailwind类
-          sizeOption.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
-          // 添加默认状态的Tailwind类
-          sizeOption.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
-        } else {
-          // 添加选中状态的Tailwind类
+        if (isSingleSelectionMode) {
+          // 单选模式：取消所有选中，只选中当前点击的选项
+          document.querySelectorAll('.size-option').forEach(option => {
+            option.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+            option.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+          });
+          
+          // 选中当前点击的选项
           sizeOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
-          // 移除默认状态的Tailwind类
           sizeOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
-        }
-
-        // 获取所有选中的尺寸
-        const selectedSizes = Array.from(document.querySelectorAll('.size-option.border-primary'))
-          .map(option => parseInt(option.dataset.size));
-
-        if (selectedSizes.length > 0) {
-          // 多选时使用最大的尺寸作为预览尺寸
-          selectedSize = Math.max(...selectedSizes);
+          
+          // 更新预览尺寸并显示提示
+          selectedSize = parseInt(sizeOption.dataset.size);
           updateIconPreviewSize(selectedSize);
           // 实时更新SVG代码显示，确保宽度和高度属性与选中尺寸同步
           updateSVGCodeDisplay();
-
-          if (selectedSizes.length === 1) {
-            showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
-          } else {
-            showToast(`已选择 ${selectedSizes.length} 个尺寸: ${selectedSizes.join('x, ')}x`);
-          }
+          showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
         } else {
-          showToast('请至少选择一个尺寸', false);
-          // 如果没有选中任何尺寸，默认选中256x256（用户指定的默认尺寸）
-          const defaultOption = document.querySelector('.size-option[data-size="256"]');
-          if (defaultOption) {
-            // 添加选中状态的Tailwind类
-            defaultOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
-            // 移除默认状态的Tailwind类
-            defaultOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
-            selectedSize = 64;
+          // 多选模式：切换当前选项的选中状态
+          if (sizeOption.classList.contains('border-primary')) {
+            // 移除选中状态
+            sizeOption.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+            sizeOption.classList.add('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+          } else {
+            // 添加选中状态
+            sizeOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+            sizeOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+          }
+
+          // 获取所有选中的尺寸
+          const selectedSizes = Array.from(document.querySelectorAll('.size-option.border-primary'))
+            .map(option => parseInt(option.dataset.size));
+
+          if (selectedSizes.length > 0) {
+            // 多选时使用最大的尺寸作为预览尺寸
+            selectedSize = Math.max(...selectedSizes);
             updateIconPreviewSize(selectedSize);
+            // 实时更新SVG代码显示，确保宽度和高度属性与选中尺寸同步
+            updateSVGCodeDisplay();
+
+            if (selectedSizes.length === 1) {
+              showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
+            } else {
+              showToast(`已选择 ${selectedSizes.length} 个尺寸: ${selectedSizes.join('x, ')}x`);
+            }
+          } else {
+            showToast('请至少选择一个尺寸', false);
+            // 如果没有选中任何尺寸，默认选中256x256
+            const defaultOption = document.querySelector('.size-option[data-size="256"]');
+            if (defaultOption) {
+              defaultOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+              defaultOption.classList.remove('border-neutral-200', 'hover:border-primary', 'hover:bg-primary/5', 'transition-basic');
+              selectedSize = 256;
+              updateIconPreviewSize(selectedSize);
+              updateSVGCodeDisplay();
+            }
           }
         }
       }
