@@ -72,7 +72,7 @@ body {
   transition: all .3s ease;
 }
 
-/* 背景点点效果 */
+/* 背景点点效果 - 与背景颜色选择功能兼容 */
 .detail-preview-container:after {
   content: "";
   position: absolute;
@@ -81,7 +81,7 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  background-image: radial-gradient(circle, #adadad .8px, rgb(255, 255, 255) 1.2px);
+  background-image: radial-gradient(circle, rgba(173, 173, 173, 0.712) .8px, transparent 1.2px);
   background-size: 30px 30px;
   z-index: -10;
 }
