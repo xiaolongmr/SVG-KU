@@ -61,7 +61,7 @@ function getIconOriginalColor(icon) {
   if (!icon || !icon.paths || icon.paths.length === 0) {
     return '#409eff'; // 仅在完全无法获取原始颜色时使用蓝色作为后备
   }
-  
+
   // 优先使用第一个有颜色的路径的填充色或描边色
   for (const path of icon.paths) {
     if (path.fill && path.fill !== 'none' && path.fill !== 'transparent' && path.fill.startsWith('#')) {
@@ -71,7 +71,7 @@ function getIconOriginalColor(icon) {
       return path.stroke;
     }
   }
-  
+
   return '#409eff'; // 后备颜色
 }
 
@@ -507,7 +507,7 @@ function createIconItem(icon) {
 
   const group = getIconGroup(icon.originalNameWithoutPrefix);
   // 使用图标当前颜色或默认获取图标原始颜色
-    const iconColor = iconColors.get(icon.id) || getIconOriginalColor(icon);
+  const iconColor = iconColors.get(icon.id) || getIconOriginalColor(icon);
   originalIconColors.set(icon.id, iconColor);
 
   // 创建SVG包装器

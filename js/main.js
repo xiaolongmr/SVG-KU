@@ -402,6 +402,8 @@ function initializeEventListeners() {
     // 更新预览尺寸并显示提示
     selectedSize = size;
     updateIconPreviewSize(selectedSize);
+    // 实时更新SVG代码显示，确保宽度和高度属性与自定义尺寸同步
+    updateSVGCodeDisplay();
     showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
   }
 
@@ -433,9 +435,11 @@ function initializeEventListeners() {
           .map(option => parseInt(option.dataset.size));
 
         if (selectedSizes.length > 0) {
-          // 使用第一个选中的尺寸作为预览尺寸
-          selectedSize = selectedSizes[0];
+          // 多选时使用最大的尺寸作为预览尺寸
+          selectedSize = Math.max(...selectedSizes);
           updateIconPreviewSize(selectedSize);
+          // 实时更新SVG代码显示，确保宽度和高度属性与选中尺寸同步
+          updateSVGCodeDisplay();
 
           if (selectedSizes.length === 1) {
             showToast(`已选择 ${selectedSize}x${selectedSize} 尺寸`);
@@ -444,8 +448,8 @@ function initializeEventListeners() {
           }
         } else {
           showToast('请至少选择一个尺寸', false);
-          // 如果没有选中任何尺寸，默认选中64x64
-          const defaultOption = document.querySelector('.size-option[data-size="64"]');
+          // 如果没有选中任何尺寸，默认选中256x256（用户指定的默认尺寸）
+          const defaultOption = document.querySelector('.size-option[data-size="256"]');
           if (defaultOption) {
             // 添加选中状态的Tailwind类
             defaultOption.classList.add('border-primary', 'bg-primary/10', 'text-primary');
@@ -504,6 +508,89 @@ function initializeEventListeners() {
       URL.revokeObjectURL(link.href);
 
       showToast(`ZIP文件已下载，包含 ${sizes.length} 个尺寸的PNG`);
+
+    } catch (error) {
+      console.error('ZIP打包失败:', error);
+      showToast('ZIP打包失败，请重试', false);
+    }
+  }
+
+  // 下载多个尺寸的SVG并打包为ZIP
+  async function downloadMultipleSVGAsZip(icon, svgCode, sizes) {
+    try {
+      // 检查JSZip是否可用
+      if (typeof JSZip === 'undefined') {
+        showToast('ZIP功能不可用，请刷新页面重试', false);
+        return;
+      }
+
+      const zip = new JSZip();
+      const iconName = icon.processedId || icon.id;
+
+      // 为每个尺寸生成SVG
+      for (let i = 0; i < sizes.length; i++) {
+        const size = sizes[i];
+        try {
+          showToast(`正在准备 ${size}x${size} SVG... (${i + 1}/${sizes.length})`, true);
+
+          // 创建带尺寸属性的SVG代码
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = svgCode;
+          const tempSvg = tempDiv.querySelector('svg');
+
+          if (tempSvg) {
+            // 设置宽度和高度属性
+            tempSvg.setAttribute('width', size + 'px');
+            tempSvg.setAttribute('height', size + 'px');
+
+            // 确保包含必要的命名空间
+            if (!tempSvg.hasAttribute('xmlns')) {
+              tempSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            }
+
+            // 正确检测是否需要xlink命名空间
+            // 使用getAttributeNames()方法查找包含'xlink:href'的属性，避免使用无效的选择器
+            const needsXlink = Array.from(tempSvg.querySelectorAll('*')).some(element => {
+              return Array.from(element.attributes).some(attr =>
+                attr.name === 'xlink:href' || attr.name.includes('xlink:')
+              );
+            });
+
+            if (!tempSvg.hasAttribute('xmlns:xlink') && needsXlink) {
+              tempSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+            }
+          }
+
+          // 获取处理后的SVG代码
+          const processedSvgCode = tempDiv.innerHTML;
+
+          // 创建blob
+          const svgBlob = new Blob([processedSvgCode], { type: 'image/svg+xml;charset=utf-8' });
+
+          // 添加到ZIP
+          const fileName = `${iconName}_${size}x${size}.svg`;
+          zip.file(fileName, svgBlob);
+
+        } catch (error) {
+          console.error(`生成 ${size}x${size} SVG失败:`, error);
+          showToast(`${size}x${size} SVG生成失败，跳过`, false);
+        }
+      }
+
+      // 生成ZIP文件
+      showToast('正在打包ZIP文件...', true);
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      // 下载ZIP文件
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${iconName}_${sizes.join('x_')}x_svg.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      showToast(`ZIP文件已下载，包含 ${sizes.length} 个尺寸的SVG`);
 
     } catch (error) {
       console.error('ZIP打包失败:', error);
@@ -632,9 +719,6 @@ function initializeEventListeners() {
         let originalCode = window.SyntaxHighlight ?
           window.SyntaxHighlight.getPlainTextCode(svgCode) :
           currentSvgCode;
-        
-        // 应用变换状态（旋转、镜像）到SVG代码
-        originalCode = applyTransformToSvgCode(originalCode, currentIcon);
 
         // 压缩成一行：移除多余空白、换行和缩进
         const compressedCode = originalCode
@@ -712,25 +796,55 @@ function initializeEventListeners() {
   if (downloadSvgBtn) {
     downloadSvgBtn.addEventListener('click', () => {
       if (currentIcon && window.DownloadManager) {
-        // 获取当前显示的SVG元素（包含最新的颜色修改）
+        // 获取选中的尺寸
+        const selectedSizes = getSelectedSizes();
+
+        // 临时保存当前选中状态
+        const tempSelectedIndex = selectedPathIndex;
+
+        // 临时清除选中状态以避免下载时包含选中框
+        clearPathSelection();
+
+        // 获取当前显示的SVG元素（包含最新的颜色修改，但不包含选中框）
         const svgElement = modalIconPreview.querySelector('svg');
         let code;
 
-        if (svgElement && window.svgColorManager) {
-          // 使用SVGColorManager获取带颜色的SVG代码
-          code = window.svgColorManager.getSVGWithColors(svgElement);
-          console.log('downloadSvg: 使用SVGColorManager获取最新SVG代码');
+        if (svgElement && window.ColorManager) {
+          // 使用ColorManager获取带颜色的SVG代码
+          code = window.ColorManager.getSVGWithColors(svgElement);
+          console.log('downloadSvg: 使用ColorManager获取最新SVG代码');
         } else {
           // 降级到原有逻辑
           code = currentSvgCode || currentIcon.svgCode;
           console.log('downloadSvg: 使用降级SVG代码');
         }
-        
-        // 应用变换状态（旋转、镜像）到SVG代码
-        code = applyTransformToSvgCode(code, currentIcon);
 
-        window.DownloadManager.downloadSVG(currentIcon, code);
-        showToast('SVG文件下载完成!');
+        // 根据选中尺寸数量决定下载方式
+        if (selectedSizes.length === 1) {
+          // 单选：直接下载单个SVG
+          window.DownloadManager.downloadSVG(currentIcon, code);
+          showToast('SVG文件下载完成!');
+        } else {
+          // 多选：打包ZIP下载
+          showToast(`正在准备 ${selectedSizes.length} 个尺寸的SVG文件并打包...`, true);
+          downloadMultipleSVGAsZip(currentIcon, code, selectedSizes);
+        }
+
+        // 恢复之前的选中状态（如果有的话）
+        if (tempSelectedIndex >= 0) {
+          setTimeout(() => {
+            selectedPathIndex = tempSelectedIndex;
+            const svgElement = modalIconPreview.querySelector('.icon-svg-element');
+            if (svgElement) {
+              const elements = svgElement.querySelectorAll('path, rect, circle, polygon, polyline, line, ellipse');
+              if (elements[tempSelectedIndex]) {
+                elements[tempSelectedIndex].style.outline = '1px dashed #f56c6c';
+                elements[tempSelectedIndex].style.outlineOffset = '2px';
+                elements[tempSelectedIndex].classList.add('path-selected');
+              }
+            }
+          }, 100);
+        }
       }
     });
   }
@@ -764,9 +878,6 @@ function initializeEventListeners() {
           code = currentSvgCode || currentIcon.svgCode;
           console.log('downloadPng: 使用降级SVG代码');
         }
-        
-        // 应用变换状态（旋转、镜像）到SVG代码
-        code = applyTransformToSvgCode(code, currentIcon);
 
         if (selectedSizes.length === 1) {
           // 单选：直接下载对应尺寸的PNG
@@ -1872,48 +1983,6 @@ function createIconItem(icon) {
   svgElement.setAttribute('viewBox', icon.viewBox || '0 0 1024 1024');
   svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svgElement.innerHTML = icon.content;
-  
-  // 应用存储的变换状态（旋转、镜像）
-  try {
-    const iconTransformKey = `icon_transform_${icon.id}`;
-    const storedData = localStorage.getItem(iconTransformKey);
-    if (storedData) {
-      const transformData = JSON.parse(storedData);
-      if (transformData.rotation !== 0 || transformData.mirrorX !== 1 || transformData.mirrorY !== 1) {
-        // 计算中心点
-        const viewBox = svgElement.getAttribute('viewBox') || '0 0 1024 1024';
-        const [x, y, width, height] = viewBox.split(' ').map(Number);
-        const centerX = width / 2;
-        const centerY = height / 2;
-        
-        // 创建变换字符串
-        let transform = '';
-        transform += `translate(-${centerX}, -${centerY}) `;
-        transform += `scale(${transformData.mirrorX}, ${transformData.mirrorY}) `;
-        transform += `rotate(${transformData.rotation}) `;
-        transform += `translate(${centerX}, ${centerY})`;
-        
-        // 创建g元素来包裹所有内容并应用变换
-        const gElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        gElement.setAttribute('transform', transform);
-        
-        // 将所有子元素移动到g元素中
-        while (svgElement.firstChild) {
-          if (svgElement.firstChild.nodeType === 1 && svgElement.firstChild.tagName !== 'style') {
-            gElement.appendChild(svgElement.firstChild);
-          } else {
-            // 保留style标签等在svg根元素
-            svgElement.appendChild(svgElement.firstChild);
-          }
-        }
-        
-        // 将g元素添加回svg
-        svgElement.appendChild(gElement);
-      }
-    }
-  } catch (error) {
-    console.error(`应用图标变换状态失败: ${error.message}`);
-  }
 
   // 使用SVGColorManager应用已保存的颜色
   if (window.svgColorManager) {
@@ -2051,26 +2120,6 @@ function openIconDetail(icon, colorParam, rotateParam, mirrorParam) {
   } else {
     window.currentIconMirrorX = 1;
     window.currentIconMirrorY = 1;
-  }
-  
-  // 从本地存储读取保存的图标调整状态
-  // 注意：URL参数优先级高于本地存储，所以只有在没有URL参数时才尝试读取本地存储
-  if (icon.id && !rotateParam && !mirrorParam) {
-    try {
-      const savedState = localStorage.getItem(`iconTransform_${icon.id}`);
-      if (savedState) {
-        const iconState = JSON.parse(savedState);
-        window.currentIconScale = iconState.scale !== undefined ? iconState.scale : 1;
-        window.currentIconX = iconState.x !== undefined ? iconState.x : 0;
-        window.currentIconY = iconState.y !== undefined ? iconState.y : 0;
-        window.currentIconRotation = iconState.rotation !== undefined ? iconState.rotation : 0;
-        window.currentIconMirrorX = iconState.mirrorX !== undefined ? iconState.mirrorX : 1;
-        window.currentIconMirrorY = iconState.mirrorY !== undefined ? iconState.mirrorY : 1;
-        console.log('从本地存储恢复图标调整状态:', iconState);
-      }
-    } catch (error) {
-      console.error('解析本地存储的图标状态失败:', error);
-    }
   }
 
   // 在打开详情页前，先找到主页对应的图标元素并滚动到可见区域
@@ -2213,8 +2262,23 @@ function openIconDetail(icon, colorParam, rotateParam, mirrorParam) {
     svgElement.className = 'icon-svg-element';
     svgElement.setAttribute('viewBox', icon.viewBox || '0 0 1024 1024');
     svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    svgElement.setAttribute('width', '200');
-    svgElement.setAttribute('height', '200');
+
+    // 获取当前选中的尺寸，如果有多个选中则使用最大尺寸
+    let previewSize = 256; // 默认尺寸改为256，与用户要求一致
+    const selectedSizes = Array.from(document.querySelectorAll('.size-option.border-primary'))
+      .map(option => parseInt(option.dataset.size));
+
+    if (selectedSizes.length > 0) {
+      // 多选时使用最大的尺寸
+      previewSize = Math.max(...selectedSizes);
+    } else if (selectedSize) {
+      // 单选时使用选中的尺寸
+      previewSize = selectedSize;
+    }
+
+    // 先设置基本的尺寸属性
+    svgElement.setAttribute('width', previewSize);
+    svgElement.setAttribute('height', previewSize);
 
     // 检查icon.content是否已经包含完整的SVG标签，如果是，则只提取内部内容
     let content = icon.content.trim();
@@ -2234,6 +2298,17 @@ function openIconDetail(icon, colorParam, rotateParam, mirrorParam) {
     svgWrapper.appendChild(svgElement);
     modalIconPreview.innerHTML = '';
     modalIconPreview.appendChild(svgWrapper);
+
+    // 初始化时就确保全屏按钮可见，方便用户随时使用
+    // 全屏按钮默认保持隐藏，通过鼠标悬停事件来控制显示
+    const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+    if (toggleFullscreenBtn) {
+      toggleFullscreenBtn.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    // 调用updateIconPreviewSize函数，确保使用统一的更新逻辑
+    // 这样无论何时创建或更新预览，都会使用相同的逻辑处理尺寸
+    updateIconPreviewSize(previewSize);
 
     // 如果当前处于全屏模式，立即应用固定尺寸样式
     if (window.isFullscreenMode || isFullscreenMode) {
@@ -2419,7 +2494,7 @@ function updateSVGCodeDisplay() {
     // 创建临时元素来解析SVG内容
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = svgCodeWithColor;
-    const tempSvg = tempDiv.querySelector('svg');
+    let tempSvg = tempDiv.querySelector('svg');
     if (tempSvg) {
       // 检查是否有嵌套SVG
       const nestedSvg = tempSvg.querySelector('svg');
@@ -2433,8 +2508,60 @@ function updateSVGCodeDisplay() {
         });
         // 使用嵌套SVG的内部内容
         cleanSvg.innerHTML = nestedSvg.innerHTML;
-        svgCodeWithColor = new XMLSerializer().serializeToString(cleanSvg);
+        tempSvg = cleanSvg;
       }
+
+      // 获取所有选中的尺寸，使用最大的尺寸
+      const selectedSizeElements = document.querySelectorAll('.size-option.border-primary');
+      if (selectedSizeElements.length > 0) {
+        // 提取所有选中的尺寸值
+        const selectedSizes = Array.from(selectedSizeElements)
+          .map(option => parseInt(option.dataset.size))
+          .filter(size => !isNaN(size));
+
+        // 使用最大的尺寸
+        const maxSize = Math.max(...selectedSizes);
+
+        // 设置width和height属性
+        tempSvg.setAttribute('width', maxSize + 'px');
+        tempSvg.setAttribute('height', maxSize + 'px');
+        console.log('updateSVGCodeDisplay: 已添加尺寸属性 width="' + maxSize + 'px" height="' + maxSize + 'px"（使用最大尺寸）');
+      } else if (selectedSize) {
+        // 如果没有选中的尺寸选项但有默认selectedSize值
+        tempSvg.setAttribute('width', selectedSize + 'px');
+        tempSvg.setAttribute('height', selectedSize + 'px');
+        console.log('updateSVGCodeDisplay: 已添加默认尺寸属性 width="' + selectedSize + 'px" height="' + selectedSize + 'px"');
+      } else {
+        // 如果没有选中任何尺寸且没有默认selectedSize值，使用256作为默认值
+        const defaultSize = 256;
+        tempSvg.setAttribute('width', defaultSize + 'px');
+        tempSvg.setAttribute('height', defaultSize + 'px');
+        console.log('updateSVGCodeDisplay: 已添加默认尺寸属性 width="' + defaultSize + 'px" height="' + defaultSize + 'px"（使用系统默认值）');
+      }
+
+      svgCodeWithColor = new XMLSerializer().serializeToString(tempSvg);
+    }
+  } else {
+    // 如果没有找到SVG标签，尝试添加尺寸属性到原始代码
+    if (svgCodeWithColor.startsWith('<svg')) {
+      // 获取所有选中的尺寸，使用最大的尺寸
+      const selectedSizeElements = document.querySelectorAll('.size-option.border-primary');
+      let maxSize = selectedSize || 256; // 默认尺寸为256
+
+      if (selectedSizeElements.length > 0) {
+        // 提取所有选中的尺寸值
+        const selectedSizes = Array.from(selectedSizeElements)
+          .map(option => parseInt(option.dataset.size))
+          .filter(size => !isNaN(size));
+
+        if (selectedSizes.length > 0) {
+          maxSize = Math.max(...selectedSizes);
+        }
+      }
+
+      // 在svg标签中添加width和height属性
+      svgCodeWithColor = svgCodeWithColor.replace('<svg', `<svg width="${maxSize}px" height="${maxSize}px"`);
+      console.log('updateSVGCodeDisplay: 已添加尺寸属性到原始SVG代码，尺寸为' + maxSize + 'x' + maxSize);
     }
   }
 
@@ -3623,21 +3750,6 @@ function navigateToNextIcon() {
 
 function closeIconModal(resetTransform = true) {
   if (iconModal) {
-    // 保存当前图标调整状态到本地存储
-    if (currentIcon && currentIcon.id) {
-      const iconState = {
-        scale: window.currentIconScale || 1,
-        x: window.currentIconX || 0,
-        y: window.currentIconY || 0,
-        rotation: window.currentIconRotation || 0,
-        mirrorX: window.currentIconMirrorX || 1,
-        mirrorY: window.currentIconMirrorY || 1,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(`iconTransform_${currentIcon.id}`, JSON.stringify(iconState));
-      console.log('图标调整状态已保存到本地存储:', iconState);
-    }
-    
     // 移除URL中的id参数
     removeIconIdFromUrl();
     // 添加动画效果
@@ -3851,43 +3963,95 @@ function resetAllColors() {
 
 // 更新图标预览尺寸
 function updateIconPreviewSize(size) {
-  if (!modalIconPreview) return;
+  // 获取modalIconPreview元素，确保始终使用正确的DOM元素
+  let previewElement = modalIconPreview || document.getElementById('modalIconPreview');
+  if (!previewElement) {
+    console.warn('updateIconPreviewSize: 未找到预览容器元素');
+    return;
+  }
 
-  const svgElement = modalIconPreview.querySelector('.icon-svg-element');
-  if (svgElement) {
-    // 更新SVG元素的尺寸
-    svgElement.setAttribute('width', size);
-    svgElement.setAttribute('height', size);
+  // 尝试按优先级获取SVG元素，确保能够找到正确的SVG元素
+  let svgElement = previewElement.querySelector('.icon-svg-element');
+  if (!svgElement) {
+    svgElement = previewElement.querySelector('svg');
+  }
+  if (!svgElement) {
+    console.warn('updateIconPreviewSize: 未找到SVG元素');
+    return;
+  }
 
-    // 更新容器样式以适应新尺寸
-    const svgWrapper = modalIconPreview.querySelector('.icon-svg-wrapper');
-    if (svgWrapper) {
-      // 检查是否处于全屏模式
-      if (window.isFullscreenMode || isFullscreenMode) {
-        // 全屏模式下使用auto尺寸和flex布局确保图标居中且不被压缩
-        svgWrapper.style.width = 'auto';
-        svgWrapper.style.height = 'auto';
-        svgWrapper.style.display = 'flex';
-        svgWrapper.style.alignItems = 'center';
-        svgWrapper.style.justifyContent = 'center';
+  // 更新SVG元素的尺寸
+  svgElement.setAttribute('width', size);
+  svgElement.setAttribute('height', size);
+
+  // 同时更新style中的尺寸，确保实时生效
+  svgElement.style.width = size + 'px';
+  svgElement.style.height = size + 'px';
+
+  // 更新容器样式以适应新尺寸
+  const svgWrapper = previewElement.querySelector('.icon-svg-wrapper');
+  if (svgWrapper) {
+    // 检查是否处于全屏模式
+    if (window.isFullscreenMode || isFullscreenMode) {
+      // 全屏模式下使用auto尺寸和flex布局确保图标居中且不被压缩
+      svgWrapper.style.width = 'auto';
+      svgWrapper.style.height = 'auto';
+      svgWrapper.style.display = 'flex';
+      svgWrapper.style.alignItems = 'center';
+      svgWrapper.style.justifyContent = 'center';
+    } else {
+      // 非全屏模式下使用固定尺寸
+      svgWrapper.style.width = size + 'px';
+      svgWrapper.style.height = size + 'px';
+
+      // 检查尺寸是否超过预览区域可显示范围（调整为450px，防止图标显示不完整）
+      const maxDisplaySize = 450;
+      if (size > maxDisplaySize && !(window.isFullscreenMode || isFullscreenMode)) {
+        // 显示提示请全屏查看
+        showToast(`当前选择的尺寸(${size}x${size})较大，建议点击全屏按钮以获得最佳查看效果`, false);
+
+        // 确保全屏按钮可见，方便用户点击
+        // 保持全屏按钮默认隐藏，通过鼠标悬停控制显示
+      }
+
+      // 防止预览容器变形，保持正方形比例
+      svgWrapper.style.aspectRatio = '1/1';
+      svgWrapper.style.overflow = 'visible';
+
+      // 确保预览容器不会被拉伸变形
+      previewElement.style.overflow = 'hidden';
+      previewElement.style.display = 'flex';
+      previewElement.style.alignItems = 'center';
+      previewElement.style.justifyContent = 'center';
+
+      // 当图标尺寸大于等于512px时，确保全屏按钮始终可见
+      if (size >= 512) {
+        const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+        if (toggleFullscreenBtn) {
+          toggleFullscreenBtn.classList.remove('opacity-0', 'pointer-events-none');
+          toggleFullscreenBtn.classList.add('opacity-100');
+        }
       } else {
-        // 非全屏模式下使用固定尺寸
-        svgWrapper.style.width = size + 'px';
-        svgWrapper.style.height = size + 'px';
+        // 对于小于512px的尺寸，保持按钮默认的悬停显示行为
+        const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+        if (toggleFullscreenBtn) {
+          toggleFullscreenBtn.classList.add('opacity-0');
+          toggleFullscreenBtn.classList.remove('opacity-100');
+        }
       }
     }
+  }
 
-    // 确保预览容器居中显示
-    modalIconPreview.style.display = 'flex';
-    modalIconPreview.style.alignItems = 'center';
-    modalIconPreview.style.justifyContent = 'center';
+  // 确保预览容器居中显示
+  previewElement.style.display = 'flex';
+  previewElement.style.alignItems = 'center';
+  previewElement.style.justifyContent = 'center';
 
-    // 在全屏模式下，确保SVG元素使用固定像素尺寸且不被压缩
-    if (window.isFullscreenMode || isFullscreenMode) {
-      svgElement.style.width = size + 'px';
-      svgElement.style.height = size + 'px';
-      svgElement.style.flexShrink = '0'; // 防止图标被压缩
-    }
+  // 在全屏模式下，确保SVG元素使用固定像素尺寸且不被压缩
+  if (window.isFullscreenMode || isFullscreenMode) {
+    svgElement.style.width = size + 'px';
+    svgElement.style.height = size + 'px';
+    svgElement.style.flexShrink = '0'; // 防止图标被压缩
   }
 }
 
@@ -4304,7 +4468,7 @@ function startBatchDownload(icons, settings) {
 
   // 使用DownloadManager进行批量下载
   if (window.DownloadManager) {
-    // 为每个图标准备带颜色和变换的SVG代码
+    // 为每个图标准备带颜色的SVG代码
     const processedIcons = icons.map(icon => {
       let svgCode = icon.svgCode;
 
@@ -4369,38 +4533,6 @@ function startBatchDownload(icons, settings) {
         svgCode = applySingleColorToSVG(svgCode, settings.batchColor);
       }
 
-      // 从localStorage获取该图标的变换状态并应用
-      // 先从localStorage获取变换状态
-      let iconTransformKey = `icon_transform_${icon.id}`;
-      let transformData = null;
-      try {
-        const storedData = localStorage.getItem(iconTransformKey);
-        if (storedData) {
-          transformData = JSON.parse(storedData);
-          console.log(`批量下载: 图标 ${icon.id} 应用变换状态: 旋转=${transformData.rotation}°, 镜像X=${transformData.mirrorX}, 镜像Y=${transformData.mirrorY}`);
-          
-          // 临时保存当前全局变换状态
-          const tempRotation = window.currentIconRotation;
-          const tempMirrorX = window.currentIconMirrorX;
-          const tempMirrorY = window.currentIconMirrorY;
-          
-          // 设置当前图标变换状态
-          window.currentIconRotation = transformData.rotation || 0;
-          window.currentIconMirrorX = transformData.mirrorX || 1;
-          window.currentIconMirrorY = transformData.mirrorY || 1;
-          
-          // 应用变换
-          svgCode = applyTransformToSvgCode(svgCode, icon);
-          
-          // 恢复全局变换状态
-          window.currentIconRotation = tempRotation;
-          window.currentIconMirrorX = tempMirrorX;
-          window.currentIconMirrorY = tempMirrorY;
-        }
-      } catch (error) {
-        console.error(`获取图标变换状态失败: ${error.message}`);
-      }
-      
       return {
         ...icon,
         svgCode: svgCode
@@ -5293,11 +5425,11 @@ function initIconPreviewZoom() {
   // 为预览区域添加鼠标移入和移出事件
   if (previewContainer) {
     previewContainer.addEventListener('mouseenter', () => {
+      // 鼠标移入预览区域时显示全屏按钮
       if (toggleFullscreenBtn) {
         toggleFullscreenBtn.classList.remove('opacity-0', 'pointer-events-none');
         toggleFullscreenBtn.classList.add('opacity-100');
       }
-      // 调整按钮始终显示，无需在此处理
     });
 
     previewContainer.addEventListener('mouseleave', () => {
@@ -5607,93 +5739,6 @@ function updateIconTransform() {
   // 更新URL参数，保持当前图标ID和颜色不变
   if (currentIcon && currentIcon.id) {
     updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
-  }
-}
-
-/**
- * 将变换状态（旋转、镜像等）应用到SVG代码中
- * @param {string} svgCode - 原始SVG代码
- * @param {Object} icon - 图标对象
- * @returns {string} - 应用变换后的SVG代码
- */
-function applyTransformToSvgCode(svgCode, icon) {
-  // 获取当前的变换状态
-  const rotation = window.currentIconRotation || 0;
-  const mirrorX = window.currentIconMirrorX || 1;
-  const mirrorY = window.currentIconMirrorY || 1;
-  
-  // 如果没有变换，直接返回原代码
-  if (rotation === 0 && mirrorX === 1 && mirrorY === 1) {
-    return svgCode;
-  }
-  
-  try {
-    // 创建临时元素来解析和修改SVG
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = svgCode;
-    const svgElement = tempDiv.querySelector('svg');
-    
-    if (!svgElement) return svgCode;
-    
-    // 获取当前的viewBox
-    let viewBox = svgElement.getAttribute('viewBox') || '0 0 1024 1024';
-    let [x, y, width, height] = viewBox.split(' ').map(Number);
-    
-    // 计算中心点
-    const centerX = width / 2;
-    const centerY = height / 2;
-    
-    // 创建g元素来包裹所有内容并应用变换
-    let gElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    
-    // 将所有子元素移动到g元素中
-    while (svgElement.firstChild) {
-      if (svgElement.firstChild.nodeType === 1 && svgElement.firstChild.tagName !== 'style') {
-        gElement.appendChild(svgElement.firstChild);
-      } else {
-        // 保留style标签等在svg根元素
-        svgElement.appendChild(svgElement.firstChild);
-      }
-    }
-    
-    // 设置变换属性
-    let transform = '';
-    
-    // 先平移到原点
-    transform += `translate(-${centerX}, -${centerY}) `;
-    
-    // 应用镜像
-    if (mirrorX !== 1 || mirrorY !== 1) {
-      transform += `scale(${mirrorX}, ${mirrorY}) `;
-    }
-    
-    // 应用旋转
-    if (rotation !== 0) {
-      transform += `rotate(${rotation}) `;
-    }
-    
-    // 平移回中心点
-    transform += `translate(${centerX}, ${centerY})`;
-    
-    gElement.setAttribute('transform', transform);
-    
-    // 将g元素添加回svg
-    svgElement.appendChild(gElement);
-    
-    // 更新viewBox以适应旋转后的内容（如果需要）
-    if (rotation % 180 !== 0) {
-      // 对于非90度倍数的旋转，可能需要调整viewBox
-      const diagonal = Math.sqrt(width * width + height * height);
-      const newX = centerX - diagonal / 2;
-      const newY = centerY - diagonal / 2;
-      svgElement.setAttribute('viewBox', `${newX} ${newY} ${diagonal} ${diagonal}`);
-    }
-    
-    // 返回修改后的SVG代码
-    return new XMLSerializer().serializeToString(svgElement);
-  } catch (error) {
-    console.error('应用变换到SVG代码失败:', error);
-    return svgCode;
   }
 }
 function initFullscreenPreview() {
