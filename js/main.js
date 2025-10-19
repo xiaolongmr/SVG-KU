@@ -632,6 +632,9 @@ function initializeEventListeners() {
         let originalCode = window.SyntaxHighlight ?
           window.SyntaxHighlight.getPlainTextCode(svgCode) :
           currentSvgCode;
+        
+        // 应用变换状态（旋转、镜像）到SVG代码
+        originalCode = applyTransformToSvgCode(originalCode, currentIcon);
 
         // 压缩成一行：移除多余空白、换行和缩进
         const compressedCode = originalCode
@@ -722,6 +725,9 @@ function initializeEventListeners() {
           code = currentSvgCode || currentIcon.svgCode;
           console.log('downloadSvg: 使用降级SVG代码');
         }
+        
+        // 应用变换状态（旋转、镜像）到SVG代码
+        code = applyTransformToSvgCode(code, currentIcon);
 
         window.DownloadManager.downloadSVG(currentIcon, code);
         showToast('SVG文件下载完成!');
@@ -758,6 +764,9 @@ function initializeEventListeners() {
           code = currentSvgCode || currentIcon.svgCode;
           console.log('downloadPng: 使用降级SVG代码');
         }
+        
+        // 应用变换状态（旋转、镜像）到SVG代码
+        code = applyTransformToSvgCode(code, currentIcon);
 
         if (selectedSizes.length === 1) {
           // 单选：直接下载对应尺寸的PNG
@@ -1863,6 +1872,48 @@ function createIconItem(icon) {
   svgElement.setAttribute('viewBox', icon.viewBox || '0 0 1024 1024');
   svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svgElement.innerHTML = icon.content;
+  
+  // 应用存储的变换状态（旋转、镜像）
+  try {
+    const iconTransformKey = `icon_transform_${icon.id}`;
+    const storedData = localStorage.getItem(iconTransformKey);
+    if (storedData) {
+      const transformData = JSON.parse(storedData);
+      if (transformData.rotation !== 0 || transformData.mirrorX !== 1 || transformData.mirrorY !== 1) {
+        // 计算中心点
+        const viewBox = svgElement.getAttribute('viewBox') || '0 0 1024 1024';
+        const [x, y, width, height] = viewBox.split(' ').map(Number);
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // 创建变换字符串
+        let transform = '';
+        transform += `translate(-${centerX}, -${centerY}) `;
+        transform += `scale(${transformData.mirrorX}, ${transformData.mirrorY}) `;
+        transform += `rotate(${transformData.rotation}) `;
+        transform += `translate(${centerX}, ${centerY})`;
+        
+        // 创建g元素来包裹所有内容并应用变换
+        const gElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        gElement.setAttribute('transform', transform);
+        
+        // 将所有子元素移动到g元素中
+        while (svgElement.firstChild) {
+          if (svgElement.firstChild.nodeType === 1 && svgElement.firstChild.tagName !== 'style') {
+            gElement.appendChild(svgElement.firstChild);
+          } else {
+            // 保留style标签等在svg根元素
+            svgElement.appendChild(svgElement.firstChild);
+          }
+        }
+        
+        // 将g元素添加回svg
+        svgElement.appendChild(gElement);
+      }
+    }
+  } catch (error) {
+    console.error(`应用图标变换状态失败: ${error.message}`);
+  }
 
   // 使用SVGColorManager应用已保存的颜色
   if (window.svgColorManager) {
@@ -2000,6 +2051,26 @@ function openIconDetail(icon, colorParam, rotateParam, mirrorParam) {
   } else {
     window.currentIconMirrorX = 1;
     window.currentIconMirrorY = 1;
+  }
+  
+  // 从本地存储读取保存的图标调整状态
+  // 注意：URL参数优先级高于本地存储，所以只有在没有URL参数时才尝试读取本地存储
+  if (icon.id && !rotateParam && !mirrorParam) {
+    try {
+      const savedState = localStorage.getItem(`iconTransform_${icon.id}`);
+      if (savedState) {
+        const iconState = JSON.parse(savedState);
+        window.currentIconScale = iconState.scale !== undefined ? iconState.scale : 1;
+        window.currentIconX = iconState.x !== undefined ? iconState.x : 0;
+        window.currentIconY = iconState.y !== undefined ? iconState.y : 0;
+        window.currentIconRotation = iconState.rotation !== undefined ? iconState.rotation : 0;
+        window.currentIconMirrorX = iconState.mirrorX !== undefined ? iconState.mirrorX : 1;
+        window.currentIconMirrorY = iconState.mirrorY !== undefined ? iconState.mirrorY : 1;
+        console.log('从本地存储恢复图标调整状态:', iconState);
+      }
+    } catch (error) {
+      console.error('解析本地存储的图标状态失败:', error);
+    }
   }
 
   // 在打开详情页前，先找到主页对应的图标元素并滚动到可见区域
@@ -3552,6 +3623,21 @@ function navigateToNextIcon() {
 
 function closeIconModal(resetTransform = true) {
   if (iconModal) {
+    // 保存当前图标调整状态到本地存储
+    if (currentIcon && currentIcon.id) {
+      const iconState = {
+        scale: window.currentIconScale || 1,
+        x: window.currentIconX || 0,
+        y: window.currentIconY || 0,
+        rotation: window.currentIconRotation || 0,
+        mirrorX: window.currentIconMirrorX || 1,
+        mirrorY: window.currentIconMirrorY || 1,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(`iconTransform_${currentIcon.id}`, JSON.stringify(iconState));
+      console.log('图标调整状态已保存到本地存储:', iconState);
+    }
+    
     // 移除URL中的id参数
     removeIconIdFromUrl();
     // 添加动画效果
@@ -4218,7 +4304,7 @@ function startBatchDownload(icons, settings) {
 
   // 使用DownloadManager进行批量下载
   if (window.DownloadManager) {
-    // 为每个图标准备带颜色的SVG代码
+    // 为每个图标准备带颜色和变换的SVG代码
     const processedIcons = icons.map(icon => {
       let svgCode = icon.svgCode;
 
@@ -4283,6 +4369,38 @@ function startBatchDownload(icons, settings) {
         svgCode = applySingleColorToSVG(svgCode, settings.batchColor);
       }
 
+      // 从localStorage获取该图标的变换状态并应用
+      // 先从localStorage获取变换状态
+      let iconTransformKey = `icon_transform_${icon.id}`;
+      let transformData = null;
+      try {
+        const storedData = localStorage.getItem(iconTransformKey);
+        if (storedData) {
+          transformData = JSON.parse(storedData);
+          console.log(`批量下载: 图标 ${icon.id} 应用变换状态: 旋转=${transformData.rotation}°, 镜像X=${transformData.mirrorX}, 镜像Y=${transformData.mirrorY}`);
+          
+          // 临时保存当前全局变换状态
+          const tempRotation = window.currentIconRotation;
+          const tempMirrorX = window.currentIconMirrorX;
+          const tempMirrorY = window.currentIconMirrorY;
+          
+          // 设置当前图标变换状态
+          window.currentIconRotation = transformData.rotation || 0;
+          window.currentIconMirrorX = transformData.mirrorX || 1;
+          window.currentIconMirrorY = transformData.mirrorY || 1;
+          
+          // 应用变换
+          svgCode = applyTransformToSvgCode(svgCode, icon);
+          
+          // 恢复全局变换状态
+          window.currentIconRotation = tempRotation;
+          window.currentIconMirrorX = tempMirrorX;
+          window.currentIconMirrorY = tempMirrorY;
+        }
+      } catch (error) {
+        console.error(`获取图标变换状态失败: ${error.message}`);
+      }
+      
       return {
         ...icon,
         svgCode: svgCode
@@ -5479,6 +5597,7 @@ function updateIconTransform() {
   const mirrorY = window.currentIconMirrorY || 1;
 
   // 应用完整的变换
+  modalIconPreview.style.transition = 'transform 0.2s ease-out';
   modalIconPreview.style.transform =
     `translate(${translateX}px, ${translateY}px) ` +
     `scale(${scale}) ` +
@@ -5488,6 +5607,93 @@ function updateIconTransform() {
   // 更新URL参数，保持当前图标ID和颜色不变
   if (currentIcon && currentIcon.id) {
     updateUrlWithIconInfo(currentIcon.id, getCurrentIconColorString());
+  }
+}
+
+/**
+ * 将变换状态（旋转、镜像等）应用到SVG代码中
+ * @param {string} svgCode - 原始SVG代码
+ * @param {Object} icon - 图标对象
+ * @returns {string} - 应用变换后的SVG代码
+ */
+function applyTransformToSvgCode(svgCode, icon) {
+  // 获取当前的变换状态
+  const rotation = window.currentIconRotation || 0;
+  const mirrorX = window.currentIconMirrorX || 1;
+  const mirrorY = window.currentIconMirrorY || 1;
+  
+  // 如果没有变换，直接返回原代码
+  if (rotation === 0 && mirrorX === 1 && mirrorY === 1) {
+    return svgCode;
+  }
+  
+  try {
+    // 创建临时元素来解析和修改SVG
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = svgCode;
+    const svgElement = tempDiv.querySelector('svg');
+    
+    if (!svgElement) return svgCode;
+    
+    // 获取当前的viewBox
+    let viewBox = svgElement.getAttribute('viewBox') || '0 0 1024 1024';
+    let [x, y, width, height] = viewBox.split(' ').map(Number);
+    
+    // 计算中心点
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    // 创建g元素来包裹所有内容并应用变换
+    let gElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    
+    // 将所有子元素移动到g元素中
+    while (svgElement.firstChild) {
+      if (svgElement.firstChild.nodeType === 1 && svgElement.firstChild.tagName !== 'style') {
+        gElement.appendChild(svgElement.firstChild);
+      } else {
+        // 保留style标签等在svg根元素
+        svgElement.appendChild(svgElement.firstChild);
+      }
+    }
+    
+    // 设置变换属性
+    let transform = '';
+    
+    // 先平移到原点
+    transform += `translate(-${centerX}, -${centerY}) `;
+    
+    // 应用镜像
+    if (mirrorX !== 1 || mirrorY !== 1) {
+      transform += `scale(${mirrorX}, ${mirrorY}) `;
+    }
+    
+    // 应用旋转
+    if (rotation !== 0) {
+      transform += `rotate(${rotation}) `;
+    }
+    
+    // 平移回中心点
+    transform += `translate(${centerX}, ${centerY})`;
+    
+    gElement.setAttribute('transform', transform);
+    
+    // 将g元素添加回svg
+    svgElement.appendChild(gElement);
+    
+    // 更新viewBox以适应旋转后的内容（如果需要）
+    if (rotation % 180 !== 0) {
+      // 对于非90度倍数的旋转，可能需要调整viewBox
+      const diagonal = Math.sqrt(width * width + height * height);
+      const newX = centerX - diagonal / 2;
+      const newY = centerY - diagonal / 2;
+      svgElement.setAttribute('viewBox', `${newX} ${newY} ${diagonal} ${diagonal}`);
+    }
+    
+    // 返回修改后的SVG代码
+    return new XMLSerializer().serializeToString(svgElement);
+  } catch (error) {
+    console.error('应用变换到SVG代码失败:', error);
+    return svgCode;
   }
 }
 function initFullscreenPreview() {
